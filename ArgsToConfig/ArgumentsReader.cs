@@ -9,14 +9,14 @@ public static class ArgumentsReader
     public static T ToObject<T>(params string[] args) where T : new()
     {
         var obj = new T();
-        var rules = BuildRules<T>();
+        var rules = BuildRules(typeof(T));
         ApplyRules(obj, rules, args);
         return obj;
     }
 
-    private static List<PropertyRule> BuildRules<T>()
+    private static List<PropertyRule> BuildRules(Type type)
     {
-        var props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
         var rules = new List<PropertyRule>(props.Length);
 
         foreach (var prop in props)
@@ -29,6 +29,21 @@ public static class ArgumentsReader
             var oneOf = prop.GetCustomAttribute<ArgsOneOfAttribute>();
             var ifSet = prop.GetCustomAttribute<ArgsIfSetAttribute>();
             var isPathspec = prop.GetCustomAttribute<ArgsPathspecAttribute>() is not null;
+            var isObject = prop.GetCustomAttribute<ArgsObjectAttribute>() is not null;
+
+            // ArgsObject – sub-object with ArgsObjectRoot on its type
+            if (isObject)
+            {
+                var propType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+                var rootAttr = propType.GetCustomAttribute<ArgsObjectRootAttribute>();
+                rules.Add(new PropertyRule
+                {
+                    Property = prop,
+                    IsObject = true,
+                    ObjectRootName = rootAttr?.GetName
+                });
+                continue;
+            }
 
             // Enum type – build member rules
             EnumMemberRule[]? enumMemberRules = null;
@@ -73,15 +88,56 @@ public static class ArgumentsReader
                 OneOfFields = oneOf?.GetFields,
                 IfSetFields = ifSet?.GetFields,
                 IsPathspec = isPathspec,
-                EnumMemberRules = enumMemberRules
+                EnumMemberRules = enumMemberRules,
+                IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
+                    && !isEnum && after is null && !isPathspec
             });
         }
 
         return rules;
     }
 
-    private static void ApplyRules<T>(T obj, List<PropertyRule> rules, string[] args)
+    private static void ApplyRules(object obj, List<PropertyRule> rules, string[] args)
     {
+        // ── ArgsObject subcommand dispatch ───────────────────────────────────
+        var objectRules = rules.Where(r => r.IsObject).ToList();
+        if (objectRules.Count > 0)
+        {
+            // Find the subcommand keyword (first non-option positional arg)
+            var subcmdIndex = -1;
+            string? subcmdName = null;
+            for (var si = 0; si < args.Length; si++)
+            {
+                if (!args[si].StartsWith('-'))
+                {
+                    subcmdIndex = si;
+                    subcmdName = args[si];
+                    break;
+                }
+            }
+
+            if (subcmdName is null)
+                throw new ArgumentException("No subcommand specified.");
+
+            var matchedRule = objectRules.FirstOrDefault(r =>
+                string.Equals(r.ObjectRootName, subcmdName, StringComparison.OrdinalIgnoreCase));
+
+            if (matchedRule is null)
+                throw new ArgumentException($"Unknown subcommand: '{subcmdName}'.");
+
+            // Instantiate the sub-object and recurse
+            var subType = Nullable.GetUnderlyingType(matchedRule.Property.PropertyType)
+                          ?? matchedRule.Property.PropertyType;
+            var subObj = Activator.CreateInstance(subType)!;
+            var subArgs = args[(subcmdIndex + 1)..];
+            var subRules = BuildRules(subType);
+            ApplyRules(subObj, subRules, subArgs);
+            matchedRule.Property.SetValue(obj, subObj);
+
+            // All other [ArgsObject] properties stay null (already default)
+            return;
+        }
+
         args = ExpandCombinedShortFlags(args, rules);
 
         var setFieldNames = new HashSet<string>();
@@ -294,6 +350,25 @@ public static class ArgumentsReader
                     SetTracked(rule.Property, ConvertValue(candidate.value, propType), candidate.index);
                 }
             }
+        }
+
+        // ── Implicit positional assignment ────────────────────────────────────
+        var implicitRules = rules.Where(r => r.IsImplicitPositional && !setFieldNames.Contains(r.Property.Name)).ToList();
+        var unconsumedPositionals = positionalArgs
+            .Where(p => !consumedAt.Values.Contains(p.index))
+            .ToList();
+        for (var pi = 0; pi < implicitRules.Count && pi < unconsumedPositionals.Count; pi++)
+        {
+            var ipRule = implicitRules[pi];
+            var (pidx, pval) = unconsumedPositionals[pi];
+            var propType = Nullable.GetUnderlyingType(ipRule.Property.PropertyType) ?? ipRule.Property.PropertyType;
+            SetTracked(ipRule.Property, ConvertValue(pval, propType), pidx);
+        }
+
+        // ── Remaining validation ──────────────────────────────────────────────
+        foreach (var rule in rules)
+        {
+            var name = rule.Property.Name;
 
             // ArgsOneOf validation
             if (rule.OneOfFields is not null && setFieldNames.Contains(name))

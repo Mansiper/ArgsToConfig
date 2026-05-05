@@ -36,4 +36,11 @@ internal sealed class PropertyRule
 
     // Enum member rules (only used when IsEnum + enum-level ArgsValueFor)
     public EnumMemberRule[]? EnumMemberRules { get; init; }
+
+    // ArgsObject (sub-object dispatch)
+    public bool IsObject { get; init; }
+    public string? ObjectRootName { get; init; }
+
+    // Implicit positional (no attributes – filled from positional args in order)
+    public bool IsImplicitPositional { get; init; }
 }
