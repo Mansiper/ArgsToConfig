@@ -30,6 +30,7 @@ public static class ArgumentsReader
             var ifSet = prop.GetCustomAttribute<ArgsIfSetAttribute>();
             var isPathspec = prop.GetCustomAttribute<ArgsPathspecAttribute>() is not null;
             var isObject = prop.GetCustomAttribute<ArgsObjectAttribute>() is not null;
+            var positional = prop.GetCustomAttribute<ArgsPositionalAttribute>();
 
             // ArgsObject – sub-object with ArgsObjectRoot on its type
             if (isObject)
@@ -41,6 +42,27 @@ public static class ArgumentsReader
                     Property = prop,
                     IsObject = true,
                     ObjectRootName = rootAttr?.GetName
+                });
+                continue;
+            }
+
+            // ArgsPipeline – array of interface instances
+            var isPipeline = prop.GetCustomAttribute<ArgsPipelineAttribute>() is not null;
+            if (isPipeline)
+            {
+                var arrayType = prop.PropertyType;
+                    Type elementType;
+                    if (arrayType.IsArray)
+                        elementType = arrayType.GetElementType()!;
+                    else if (arrayType.IsGenericType)
+                        elementType = arrayType.GetGenericArguments()[0];
+                    else
+                        elementType = arrayType;
+                rules.Add(new PropertyRule
+                {
+                    Property = prop,
+                    IsPipeline = true,
+                    PipelineElementType = elementType
                 });
                 continue;
             }
@@ -89,15 +111,16 @@ public static class ArgumentsReader
                 IfSetFields = ifSet?.GetFields,
                 IsPathspec = isPathspec,
                 EnumMemberRules = enumMemberRules,
+                PositionalIndex = positional?.GetPosition ?? -1,
                 IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
-                    && !isEnum && after is null && !isPathspec
+                    && !isEnum && after is null && !isPathspec && positional is null
             });
         }
 
         return rules;
     }
 
-    private static void ApplyRules(object obj, List<PropertyRule> rules, string[] args)
+    private static void ApplyRules(object obj, List<PropertyRule> rules, string[] args, bool ignoreUnknown = false)
     {
         // ── ArgsObject subcommand dispatch ───────────────────────────────────
         var objectRules = rules.Where(r => r.IsObject).ToList();
@@ -131,10 +154,183 @@ public static class ArgumentsReader
             var subObj = Activator.CreateInstance(subType)!;
             var subArgs = args[(subcmdIndex + 1)..];
             var subRules = BuildRules(subType);
+
+            // Validate: no arg name conflicts between parent non-object rules and the matched sub-object
+            var nonObjectRules = rules.Where(r => !r.IsObject).ToList();
+            var parentArgNames = BuildKnownArgNames(nonObjectRules);
+            var subArgNames = BuildKnownArgNames(subRules);
+            var conflicts = parentArgNames.Intersect(subArgNames, StringComparer.OrdinalIgnoreCase).ToList();
+            if (conflicts.Count > 0)
+                throw new ArgumentException(
+                    $"Argument name conflict between root and subcommand '{subcmdName}': {string.Join(", ", conflicts)}.");
+
             ApplyRules(subObj, subRules, subArgs);
             matchedRule.Property.SetValue(obj, subObj);
 
-            // All other [ArgsObject] properties stay null (already default)
+            // Continue processing remaining (non-object) rules against the full args,
+            // ignoring unknown args consumed by the sub-object.
+            if (nonObjectRules.Count > 0)
+                ApplyRules(obj, nonObjectRules, args, ignoreUnknown: true);
+            return;
+        }
+
+        // ── ArgsPipeline dispatch ────────────────────────────────────────────
+        var pipelineRules = rules.Where(r => r.IsPipeline).ToList();
+        if (pipelineRules.Count > 0)
+        {
+            // Build a map from pipeline interface → pipeline rule (one per interface type)
+            // and validate: only one pipeline property per interface type
+            var pipelineByInterface = new Dictionary<Type, PropertyRule>();
+            foreach (var pr in pipelineRules)
+            {
+                var iface = pr.PipelineElementType!;
+                if (pipelineByInterface.ContainsKey(iface))
+                    throw new ArgumentException(
+                        $"Multiple [ArgsPipeline] properties use the same interface '{iface.Name}'. Collections in the root level must be based on different interfaces.");
+                pipelineByInterface[iface] = pr;
+            }
+
+            // Collect all [ArgsPipelineCommand] types from the assembly that implement any pipeline interface
+            var callingAssemblies = new[] { obj.GetType().Assembly, typeof(ArgumentsReader).Assembly }
+                .Distinct()
+                .ToArray();
+            var allCommandTypes = callingAssemblies
+                .SelectMany(a => a.GetTypes())
+                .Where(t => t.GetCustomAttribute<ArgsPipelineCommandAttribute>() is not null)
+                .ToList();
+
+            // Build maps: commandName → (commandType, pipelineRule)
+            // Validate: duplicate command name across same interface → error
+            var commandByName = new Dictionary<string, (Type Type, PropertyRule PipelineRule)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var cmdType in allCommandTypes)
+            {
+                var cmdAttr = cmdType.GetCustomAttribute<ArgsPipelineCommandAttribute>()!;
+                var cmdName = cmdAttr.GetName;
+                // Find which pipeline interface this type implements
+                PropertyRule? matchingPipelineRule = null;
+                foreach (var (iface, pr) in pipelineByInterface)
+                    if (iface.IsAssignableFrom(cmdType))
+                    {
+                        matchingPipelineRule = pr;
+                        break;
+                    }
+                if (matchingPipelineRule is null)
+                    continue; // belongs to a different pipeline in a different class, skip
+
+                if (commandByName.TryGetValue(cmdName, out _))
+                    throw new ArgumentException(
+                        $"Duplicate [ArgsPipelineCommand] name '{cmdName}' found across pipeline properties.");
+                commandByName[cmdName] = (cmdType, matchingPipelineRule);
+            }
+
+            // Collect known root arg names (from non-pipeline rules)
+            var nonPipelineRules = rules.Where(r => !r.IsPipeline).ToList();
+            _ = BuildKnownArgNames(nonPipelineRules);
+            // Also collect root positional parameter names (like "run", "pipeline")
+            var rootPositionalNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in nonPipelineRules)
+                if (r.HasParameterNames is not null)
+                    foreach (var n in r.HasParameterNames.Where(n => !n.StartsWith('-')))
+                        rootPositionalNames.Add(n);
+
+            // Validate: pipeline command names must not collide with root positional parameter names
+            foreach (var cmdName in commandByName.Keys.Where(rootPositionalNames.Contains))
+                throw new ArgumentException($"Pipeline command name '{cmdName}' conflicts with a root parameter name.");
+
+            // Validate: no pipeline command should use another pipeline command name as an argument name
+            foreach (var (cmdName, (cmdType, _)) in commandByName)
+            {
+                var cmdRulesCheck = BuildRules(cmdType);
+                _ = BuildKnownArgNames(cmdRulesCheck);
+                // Also check positional HasParameter names
+                var cmdPositionalNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var r in cmdRulesCheck)
+                    if (r.HasParameterNames is not null)
+                        foreach (var n in r.HasParameterNames.Where(n => !n.StartsWith('-')))
+                            cmdPositionalNames.Add(n);
+                foreach (var otherCmdName in commandByName.Keys)
+                    if (!string.Equals(otherCmdName, cmdName, StringComparison.OrdinalIgnoreCase) && cmdPositionalNames.Contains(otherCmdName))
+                        throw new ArgumentException($"Pipeline command '{cmdName}' uses another pipeline command name '{otherCmdName}' as an argument.");
+            }
+
+            // Segment args: each segment starts when a pipeline command name is encountered
+            // Non-pipeline args are collected separately for the root
+            var pipelineCommands = new Dictionary<PropertyRule, List<object>>();
+            foreach (var pr in pipelineRules)
+                pipelineCommands[pr] = [];
+
+            // Track closed pipelines for ordering constraint:
+            // once you switch away from a pipeline, it is closed and cannot be re-entered
+            PropertyRule? currentPipelineRule = null;
+            var closedPipelineRules = new HashSet<PropertyRule>();
+
+            var remainingArgs = new List<string>();
+            var i2 = 0;
+            while (i2 < args.Length)
+            {
+                var a = args[i2];
+                if (!a.StartsWith('-') && commandByName.TryGetValue(a, out var cmdEntry))
+                {
+                    if (currentPipelineRule is not null && currentPipelineRule != cmdEntry.PipelineRule)
+                    {
+                        // Switching to a different pipeline: close the current one
+                        closedPipelineRules.Add(currentPipelineRule);
+                    }
+                    if (closedPipelineRules.Contains(cmdEntry.PipelineRule))
+                        throw new ArgumentException(
+                            $"Cannot go back to a previously used pipeline. Command '{a}' belongs to a pipeline that was already closed.");
+                    currentPipelineRule = cmdEntry.PipelineRule;
+
+                    // Collect args for this command until next command name or root positional or end
+                    i2++;
+                    var cmdArgsList = new List<string>();
+                    while (i2 < args.Length)
+                    {
+                        var next = args[i2];
+                        if (!next.StartsWith('-') && (commandByName.ContainsKey(next) || rootPositionalNames.Contains(next)))
+                            break;
+                        cmdArgsList.Add(next);
+                        i2++;
+                    }
+                    var cmdObj = Activator.CreateInstance(cmdEntry.Type)!;
+                    var cmdRules = BuildRules(cmdEntry.Type);
+                    ApplyRules(cmdObj, cmdRules, cmdArgsList.ToArray());
+                    pipelineCommands[cmdEntry.PipelineRule].Add(cmdObj);
+                }
+                else
+                {
+                    remainingArgs.Add(a);
+                    i2++;
+                }
+            }
+
+            // Set pipeline array/list properties
+            foreach (var (pr, list) in pipelineCommands)
+            {
+                if (list.Count > 0)
+                {
+                    var elementType = pr.PipelineElementType!;
+                    var propType = pr.Property.PropertyType;
+                    if (propType.IsArray)
+                    {
+                        var array = Array.CreateInstance(elementType, list.Count);
+                        for (var ai = 0; ai < list.Count; ai++)
+                            array.SetValue(list[ai], ai);
+                        pr.Property.SetValue(obj, array);
+                    }
+                    else if (propType.IsGenericType && propType.GetGenericTypeDefinition() == typeof(List<>))
+                    {
+                        var listObj = (System.Collections.IList)Activator.CreateInstance(propType)!;
+                        foreach (var item in list)
+                            listObj.Add(item);
+                        pr.Property.SetValue(obj, listObj);
+                    }
+                }
+            }
+
+            // Process remaining (non-pipeline) args through root rules
+            if (nonPipelineRules.Count > 0)
+                ApplyRules(obj, nonPipelineRules, remainingArgs.ToArray(), ignoreUnknown);
             return;
         }
 
@@ -215,7 +411,7 @@ public static class ArgumentsReader
 
             if (!argIndex.TryGetValue(key, out var entry))
             {
-                if (!knownArgNames.Contains(key))
+                if (!ignoreUnknown && !knownArgNames.Contains(key))
                     throw new ArgumentException($"Unknown argument: '{a}'.");
                 continue;
             }
@@ -318,7 +514,9 @@ public static class ArgumentsReader
             }
 
             // ArgsHasParameter matched by positional value
-            if (rule.HasParameterNames is not null && rule.HasParameterPosition >= 0)
+            if (rule.HasParameterNames is not null
+                && (rule.HasParameterPosition >= 0
+                    || (rule.HasParameterPosition < 0 && rule.HasParameterNames.Any(n => !n.StartsWith('-')))))
             {
                 var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
                 if (propType == typeof(bool)
@@ -357,10 +555,41 @@ public static class ArgumentsReader
         var unconsumedPositionals = positionalArgs
             .Where(p => !consumedAt.Values.Contains(p.index))
             .ToList();
-        for (var pi = 0; pi < implicitRules.Count && pi < unconsumedPositionals.Count; pi++)
+
+        // ── ArgsPositional explicit assignment ───────────────────────────────
+        var explicitPositionalRules = rules.Where(r => r.PositionalIndex >= 0).OrderBy(r => r.PositionalIndex).ToList();
+        if (explicitPositionalRules.Count > 0)
+        {
+            // Validate: no duplicate positions
+            var duplicates = explicitPositionalRules.GroupBy(r => r.PositionalIndex).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (duplicates.Count > 0)
+                throw new ArgumentException($"Duplicate [ArgsPositional] index(es): {string.Join(", ", duplicates)}.");
+
+            // Validate: must start at 0
+            if (explicitPositionalRules[0].PositionalIndex != 0)
+                throw new ArgumentException("[ArgsPositional] indices must start at 0.");
+
+            // Validate: no gaps
+            for (var pi = 1; pi < explicitPositionalRules.Count; pi++)
+                if (explicitPositionalRules[pi].PositionalIndex != pi)
+                    throw new ArgumentException($"[ArgsPositional] indices must be contiguous (missing index {pi}).");
+
+            // Assign positional args to explicit positional rules
+            for (var pi = 0; pi < explicitPositionalRules.Count && pi < unconsumedPositionals.Count; pi++)
+            {
+                var epRule = explicitPositionalRules[pi];
+                var (pidx, pval) = unconsumedPositionals[pi];
+                var propType = Nullable.GetUnderlyingType(epRule.Property.PropertyType) ?? epRule.Property.PropertyType;
+                SetTracked(epRule.Property, ConvertValue(pval, propType), pidx);
+            }
+        }
+        var remainingPositionals = unconsumedPositionals
+            .Where(p => !consumedAt.Values.Contains(p.index))
+            .ToList();
+        for (var pi = 0; pi < implicitRules.Count && pi < remainingPositionals.Count; pi++)
         {
             var ipRule = implicitRules[pi];
-            var (pidx, pval) = unconsumedPositionals[pi];
+            var (pidx, pval) = remainingPositionals[pi];
             var propType = Nullable.GetUnderlyingType(ipRule.Property.PropertyType) ?? ipRule.Property.PropertyType;
             SetTracked(ipRule.Property, ConvertValue(pval, propType), pidx);
         }
@@ -391,15 +620,15 @@ public static class ArgumentsReader
 
         return;
 
-        void SetTracked(PropertyInfo prop, object value, int argIndex)
+        void SetTracked(PropertyInfo prop, object value, int argIndx)
         {
             if (setFieldNames.Contains(prop.Name))
                 throw new ArgumentException($"Argument for '{prop.Name}' was specified more than once.");
 
             prop.SetValue(obj, value);
             setFieldNames.Add(prop.Name);
-            if (argIndex >= 0)
-                consumedAt[prop.Name] = argIndex;
+            if (argIndx >= 0)
+                consumedAt[prop.Name] = argIndx;
         }
     }
 
@@ -501,7 +730,4 @@ public static class ArgumentsReader
             throw new ArgumentException($"Invalid value '{raw}' for type '{targetType.Name}'.", ex);
         }
     }
-
-    private static void SetProperty<T>(T obj, PropertyInfo prop, object value) => 
-        prop.SetValue(obj, value);
 }

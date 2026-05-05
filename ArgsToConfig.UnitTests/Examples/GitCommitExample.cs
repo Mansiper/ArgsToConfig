@@ -12,7 +12,7 @@ namespace ArgsToConfig.UnitTests.Examples;
    [--] [<pathspec>…​]*/
 internal class GitCommitExample
 {
-    [ArgsHasParameter("commit", 1)]
+    [ArgsHasParameter("commit", 0)]
     public bool IsCommit { get; set; }
 
     [ArgsEnum]

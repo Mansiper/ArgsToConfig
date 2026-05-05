@@ -51,7 +51,7 @@ public class GitMultipleTests
     }
 
     [Test]
-    public void Push_ShouldFail()
+    public void Push_ShouldFail_WhenWrongRootArgument()
     {
         // Arrange
         var args = new[] { "push" };

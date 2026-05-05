@@ -41,6 +41,13 @@ internal sealed class PropertyRule
     public bool IsObject { get; init; }
     public string? ObjectRootName { get; init; }
 
+    // ArgsPipeline (array of interface instances)
+    public bool IsPipeline { get; init; }
+    public Type? PipelineElementType { get; init; }
+
     // Implicit positional (no attributes – filled from positional args in order)
     public bool IsImplicitPositional { get; init; }
+
+    // ArgsPositional (explicit positional index)
+    public int PositionalIndex { get; init; } = -1;
 }
