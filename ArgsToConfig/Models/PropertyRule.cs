@@ -1,0 +1,39 @@
+﻿using System.Reflection;
+
+namespace ArgsToConfig.Models;
+
+internal sealed class PropertyRule
+{
+    public PropertyInfo Property { get; init; } = null!;
+
+    // ArgsHasParameter
+    public string[]? HasParameterNames { get; init; }
+    public int HasParameterPosition { get; init; } = -1;
+
+    // ArgsValueFor
+    public string[]? ValueForNames { get; init; }
+    public bool ValueForOptional { get; init; }
+    public string? ValueForDefault { get; init; }
+
+    // ArgsValueForBool
+    public string[]? ValueForBoolTrueNames { get; init; }
+    public string[]? ValueForBoolFalseNames { get; init; }
+
+    // ArgsEnum (property is an enum type)
+    public bool IsEnum { get; init; }
+
+    // ArgsAfter
+    public string[]? AfterFields { get; init; }
+
+    // ArgsOneOf
+    public string[]? OneOfFields { get; init; }
+
+    // ArgsIfSet
+    public string[]? IfSetFields { get; init; }
+
+    // ArgsPathspec
+    public bool IsPathspec { get; init; }
+
+    // Enum member rules (only used when IsEnum + enum-level ArgsValueFor)
+    public EnumMemberRule[]? EnumMemberRules { get; init; }
+}

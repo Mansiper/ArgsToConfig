@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ArgsToConfig.UnitTests/ArgsToConfig.UnitTests.csproj" />
+  <Project Path="ArgsToConfig/ArgsToConfig.csproj" />
+</Solution>
