@@ -34,7 +34,8 @@ internal class GitCommitExample
     public bool DryRun { get; set; }
 
     [ArgsValueFor("--fixup")]
-    public string? FixupCommit { get; set; }
+    [ArgsTuple(":")]
+    public (string, string)? FixupCommit { get; set; }
 
     [ArgsValueFor("-F|--file", true)]
     public string? File { get; set; }

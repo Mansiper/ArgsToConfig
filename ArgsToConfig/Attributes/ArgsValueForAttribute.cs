@@ -1,20 +1,22 @@
 ﻿namespace ArgsToConfig.Attributes;
 
 /// <summary>
-/// The value of the parameter with the name specified in the attribute.
+/// Specifies the name of a name-value argument. The value of that argument will be assigned to the field or property it is applied to.
+/// Multiple argument names can be specified by separating them with <c>|</c>.
+/// Works with any primitive type. Also works with tuple types when used together with <see cref="ArgsTupleAttribute"/>.
+/// If <c>optional</c> is <see langword="true"/> and the argument is not present, the default value (not <see langword="null"/>) is used instead.
+/// The default value can be overridden via <see cref="DefaultValue"/>.
 /// </summary>
-/// <remarks>Works with any type, but string by default. Otherwise, tries to convert the value to the property type.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsValueForAttribute : Attribute
 {
-    private string Name { get; }
-    private bool Optional { get; }
-
-    public string DefaultValue { get; set; }
+    private readonly string name;
+    private readonly bool optional;
+    public string? DefaultValue { get; set; }
 
     public ArgsValueForAttribute(string name, bool optional = false) =>
-        (Name, Optional) = (name, optional);
+        (this.name, this.optional) = (name, optional);
 
-    internal string[] GetNames => Name.Split('|');
-    internal bool GetOptional => Optional;
+    internal string[] GetNames => name.Split('|');
+    internal bool GetOptional => optional;
 }

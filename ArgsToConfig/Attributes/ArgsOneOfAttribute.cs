@@ -1,9 +1,10 @@
 ﻿namespace ArgsToConfig.Attributes;
 
 /// <summary>
-/// Indicates that the decorated property or one of the decorated properties must be set while the others must not be set
+/// Indicates that only one of the specified fields and the field or property it is applied to can have a value at a time.
+/// It is recommended to apply this attribute to the last of the listed fields.
 /// </summary>
-/// <remarks>All the decorated properties must be nullable. Apply it to the last of the fields</remarks>
+/// <remarks>All of these fields must be nullable.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsOneOfAttribute : Attribute
 {

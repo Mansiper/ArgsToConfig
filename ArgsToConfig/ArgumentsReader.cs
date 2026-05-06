@@ -25,6 +25,7 @@ public static class ArgumentsReader
             var valueFor = prop.GetCustomAttribute<ArgsValueForAttribute>();
             var valueForBool = prop.GetCustomAttribute<ArgsValueForBoolAttribute>();
             var argsEnum = prop.GetCustomAttribute<ArgsEnumAttribute>();
+            var argsTuple = prop.GetCustomAttribute<ArgsTupleAttribute>();
             var isEnum = argsEnum is not null;
             var after = prop.GetCustomAttribute<ArgsAfterAttribute>();
             var oneOf = prop.GetCustomAttribute<ArgsOneOfAttribute>();
@@ -50,13 +51,13 @@ public static class ArgumentsReader
             if (isPipeline)
             {
                 var arrayType = prop.PropertyType;
-                    Type elementType;
-                    if (arrayType.IsArray)
-                        elementType = arrayType.GetElementType()!;
-                    else if (arrayType.IsGenericType)
-                        elementType = arrayType.GetGenericArguments()[0];
-                    else
-                        elementType = arrayType;
+                Type elementType;
+                if (arrayType.IsArray)
+                    elementType = arrayType.GetElementType()!;
+                else if (arrayType.IsGenericType)
+                    elementType = arrayType.GetGenericArguments()[0];
+                else
+                    elementType = arrayType;
                 rules.Add(new PropertyRule
                 {
                     Property = prop,
@@ -112,6 +113,7 @@ public static class ArgumentsReader
                 IsPathspec = isPathspec,
                 EnumMemberRules = enumMemberRules,
                 PositionalIndex = positional?.GetPosition ?? -1,
+                TupleDividers = argsTuple?.GetDividers,
                 IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
                     && !isEnum && after is null && !isPathspec && positional is null
             });
@@ -143,10 +145,13 @@ public static class ArgumentsReader
                         rootPositionalNames.Add(n);
 
             // Validate: no arg name conflicts between parent non-object rules and any subcommand
+            var subRulesCache = new Dictionary<Type, List<PropertyRule>>();
             foreach (var (subcmdName2, subRule) in subcmdMap)
             {
                 var subType2 = Nullable.GetUnderlyingType(subRule.Property.PropertyType) ?? subRule.Property.PropertyType;
-                var subArgNames2 = BuildKnownArgNames(BuildRules(subType2));
+                if (!subRulesCache.ContainsKey(subType2))
+                    subRulesCache[subType2] = BuildRules(subType2);
+                var subArgNames2 = BuildKnownArgNames(subRulesCache[subType2]);
                 var conflicts2 = parentArgNames.Intersect(subArgNames2, StringComparer.OrdinalIgnoreCase).ToList();
                 if (conflicts2.Count > 0)
                     throw new ArgumentException(
@@ -156,7 +161,6 @@ public static class ArgumentsReader
             // Segment args by subcommand keywords; non-subcommand args go to the root
             // Each segment: (rule, startIndex, args slice)
             var segments = new List<(PropertyRule Rule, List<string> SegArgs)>();
-            PropertyRule? currentRule = null;
             List<string>? currentSegArgs = null;
             var rootArgs = new List<string>();
 
@@ -165,23 +169,17 @@ public static class ArgumentsReader
                 if (!a.StartsWith('-') && subcmdMap.TryGetValue(a, out var foundRule))
                 {
                     // Start a new segment for this subcommand
-                    currentRule = foundRule;
+                    var currentRule = foundRule;
                     currentSegArgs = [];
                     segments.Add((currentRule, currentSegArgs));
                 }
                 else if (currentSegArgs is not null && !a.StartsWith('-') && rootPositionalNames.Contains(a))
-                {
                     // Root positional name encountered inside a subcommand segment — belongs to root
                     rootArgs.Add(a);
-                }
                 else if (currentSegArgs is not null)
-                {
                     currentSegArgs.Add(a);
-                }
                 else
-                {
                     rootArgs.Add(a);
-                }
             }
 
             if (segments.Count == 0)
@@ -192,7 +190,9 @@ public static class ArgumentsReader
             {
                 var subType = Nullable.GetUnderlyingType(segRule.Property.PropertyType) ?? segRule.Property.PropertyType;
                 var subObj = Activator.CreateInstance(subType)!;
-                var subRules = BuildRules(subType);
+                if (!subRulesCache.ContainsKey(subType))
+                    subRulesCache[subType] = BuildRules(subType);
+                var subRules = subRulesCache[subType];
                 ApplyRules(subObj, subRules, segArgs.ToArray());
                 segRule.Property.SetValue(obj, subObj);
             }
@@ -213,16 +213,17 @@ public static class ArgumentsReader
             foreach (var pr in pipelineRules)
             {
                 var iface = pr.PipelineElementType!;
-                if (pipelineByInterface.ContainsKey(iface))
+                if (!pipelineByInterface.TryAdd(iface, pr))
                     throw new ArgumentException(
                         $"Multiple [ArgsPipeline] properties use the same interface '{iface.Name}'. Collections in the root level must be based on different interfaces.");
-                pipelineByInterface[iface] = pr;
             }
 
             // Collect all [ArgsPipelineCommand] types from the assembly that implement any pipeline interface
-            var callingAssemblies = new[] { obj.GetType().Assembly, typeof(ArgumentsReader).Assembly }
-                .Distinct()
-                .ToArray();
+            var objAssembly = obj.GetType().Assembly;
+            var readerAssembly = typeof(ArgumentsReader).Assembly;
+            var callingAssemblies = objAssembly == readerAssembly
+                ? new[] { objAssembly }
+                : new[] { objAssembly, readerAssembly };
             var allCommandTypes = callingAssemblies
                 .SelectMany(a => a.GetTypes())
                 .Where(t => t.GetCustomAttribute<ArgsPipelineCommandAttribute>() is not null)
@@ -254,7 +255,6 @@ public static class ArgumentsReader
 
             // Collect known root arg names (from non-pipeline rules)
             var nonPipelineRules = rules.Where(r => !r.IsPipeline).ToList();
-            _ = BuildKnownArgNames(nonPipelineRules);
             // Also collect root positional parameter names (like "run", "pipeline")
             var rootPositionalNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var r in nonPipelineRules)
@@ -267,10 +267,12 @@ public static class ArgumentsReader
                 throw new ArgumentException($"Pipeline command name '{cmdName}' conflicts with a root parameter name.");
 
             // Validate: no pipeline command should use another pipeline command name as an argument name
+            var cmdRulesCache = new Dictionary<Type, List<PropertyRule>>();
             foreach (var (cmdName, (cmdType, _)) in commandByName)
             {
-                var cmdRulesCheck = BuildRules(cmdType);
-                _ = BuildKnownArgNames(cmdRulesCheck);
+                if (!cmdRulesCache.ContainsKey(cmdType))
+                    cmdRulesCache[cmdType] = BuildRules(cmdType);
+                var cmdRulesCheck = cmdRulesCache[cmdType];
                 // Also check positional HasParameter names
                 var cmdPositionalNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var r in cmdRulesCheck)
@@ -301,10 +303,8 @@ public static class ArgumentsReader
                 if (!a.StartsWith('-') && commandByName.TryGetValue(a, out var cmdEntry))
                 {
                     if (currentPipelineRule is not null && currentPipelineRule != cmdEntry.PipelineRule)
-                    {
                         // Switching to a different pipeline: close the current one
                         closedPipelineRules.Add(currentPipelineRule);
-                    }
                     if (closedPipelineRules.Contains(cmdEntry.PipelineRule))
                         throw new ArgumentException(
                             $"Cannot go back to a previously used pipeline. Command '{a}' belongs to a pipeline that was already closed.");
@@ -322,7 +322,9 @@ public static class ArgumentsReader
                         i2++;
                     }
                     var cmdObj = Activator.CreateInstance(cmdEntry.Type)!;
-                    var cmdRules = BuildRules(cmdEntry.Type);
+                    if (!cmdRulesCache.ContainsKey(cmdEntry.Type))
+                        cmdRulesCache[cmdEntry.Type] = BuildRules(cmdEntry.Type);
+                    var cmdRules = cmdRulesCache[cmdEntry.Type];
                     ApplyRules(cmdObj, cmdRules, cmdArgsList.ToArray());
                     pipelineCommands[cmdEntry.PipelineRule].Add(cmdObj);
                 }
@@ -413,7 +415,7 @@ public static class ArgumentsReader
             {
                 foreach (var n in rule.HasParameterNames) argIndex[n] = (rule, null, null);
             }
-            else if (rule.IsEnum && rule.EnumMemberRules is not null && rule.ValueForNames is null)
+            else if (rule is { IsEnum: true, EnumMemberRules: not null, ValueForNames: null })
             {
                 foreach (var mr in rule.EnumMemberRules)
                     if (mr.HasParameterNames is not null)
@@ -516,7 +518,7 @@ public static class ArgumentsReader
 
             var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
 
-            if (rule.IsEnum && rule.EnumMemberRules is not null)
+            if (rule is { IsEnum: true, EnumMemberRules: not null })
             {
                 if (value is not null)
                 {
@@ -546,11 +548,15 @@ public static class ArgumentsReader
             }
             else if (value is not null)
             {
-                SetTracked(rule.Property, ConvertValue(value, propType), i);
+                var converted = rule.TupleDividers is not null && propType.IsGenericType
+                    ? ConvertTupleValue(value, propType, rule.TupleDividers)
+                    : ConvertValue(value, propType);
+                SetTracked(rule.Property, converted, i);
             }
         }
 
         // ── Post-processing: one pass over rules ─────────────────────────────
+        var positionalValues = new HashSet<string>(positionalArgs.Select(p => p.value), StringComparer.OrdinalIgnoreCase);
         foreach (var rule in rules)
         {
             var name = rule.Property.Name;
@@ -578,8 +584,7 @@ public static class ArgumentsReader
             {
                 var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
                 if (propType == typeof(bool)
-                    && positionalArgs.Any(p => rule.HasParameterNames.Any(n =>
-                        string.Equals(n, p.value, StringComparison.OrdinalIgnoreCase))))
+                    && rule.HasParameterNames.Any(positionalValues.Contains))
                     SetTracked(rule.Property, true, -1);
             }
 
@@ -594,6 +599,40 @@ public static class ArgumentsReader
             // ArgsAfter
             if (rule.AfterFields is not null)
             {
+                // Pre-assign any AfterFields that are implicit positionals not yet set,
+                // reserving at least one positional for the ArgsAfter field itself.
+                var implicitAfterFields = rule.AfterFields
+                    .Where(f => !setFieldNames.Contains(f))
+                    .Select(f => rules.FirstOrDefault(r => r.Property.Name == f && r.IsImplicitPositional))
+                    .Where(r => r is not null)
+                    .ToList();
+                if (implicitAfterFields.Count > 0)
+                {
+                    var preConsumedIndices = new HashSet<int>(consumedAt.Values);
+                    var availablePositionals = positionalArgs
+                        .Where(p => !preConsumedIndices.Contains(p.index))
+                        .ToList();
+                    // Need at least one positional left for the ArgsAfter field itself
+                    var canAssign = availablePositionals.Count - 1;
+                    for (var pi = 0; pi < implicitAfterFields.Count && pi < canAssign; pi++)
+                    {
+                        var preRule = implicitAfterFields[pi]!;
+                        var (pidx, pval) = availablePositionals[pi];
+                        var prePropType = Nullable.GetUnderlyingType(preRule.Property.PropertyType) ?? preRule.Property.PropertyType;
+                        SetTracked(preRule.Property, ConvertValue(pval, prePropType), pidx);
+                    }
+                }
+
+                // All specified fields must be set before the value can be assigned.
+                // Implicit positional AfterFields are treated as optional: if there weren't
+                // enough positional args to fill them, they are skipped rather than blocking.
+                var unsatisfied = rule.AfterFields
+                    .Where(f => !setFieldNames.Contains(f))
+                    .Where(f => !rules.Any(r => r.Property.Name == f && r.IsImplicitPositional))
+                    .ToList();
+                if (unsatisfied.Count > 0)
+                    continue;
+
                 var minIndex = -1;
                 foreach (var fieldName in rule.AfterFields)
                     if (consumedAt.TryGetValue(fieldName, out var idx) && idx > minIndex)
@@ -602,6 +641,12 @@ public static class ArgumentsReader
                 var candidate = positionalArgs.FirstOrDefault(p => p.index > minIndex);
                 if (candidate.value is not null)
                 {
+                    // Ensure none of the AfterFields appear after the candidate (they become immutable)
+                    foreach (var fieldName in rule.AfterFields)
+                        if (consumedAt.TryGetValue(fieldName, out var fieldIdx) && fieldIdx > candidate.index)
+                            throw new ArgumentException(
+                                $"Field '{fieldName}' cannot be changed after '{rule.Property.Name}' has been assigned ([ArgsAfter]).");
+
                     var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
                     SetTracked(rule.Property, ConvertValue(candidate.value, propType), candidate.index);
                 }
@@ -610,8 +655,9 @@ public static class ArgumentsReader
 
         // ── Implicit positional assignment ────────────────────────────────────
         var implicitRules = rules.Where(r => r.IsImplicitPositional && !setFieldNames.Contains(r.Property.Name)).ToList();
+        var consumedIndices = new HashSet<int>(consumedAt.Values);
         var unconsumedPositionals = positionalArgs
-            .Where(p => !consumedAt.Values.Contains(p.index))
+            .Where(p => !consumedIndices.Contains(p.index))
             .ToList();
 
         // ── ArgsPositional explicit assignment ───────────────────────────────
@@ -641,8 +687,9 @@ public static class ArgumentsReader
                 SetTracked(epRule.Property, ConvertValue(pval, propType), pidx);
             }
         }
+        consumedIndices = new HashSet<int>(consumedAt.Values);
         var remainingPositionals = unconsumedPositionals
-            .Where(p => !consumedAt.Values.Contains(p.index))
+            .Where(p => !consumedIndices.Contains(p.index))
             .ToList();
         for (var pi = 0; pi < implicitRules.Count && pi < remainingPositionals.Count; pi++)
         {
@@ -660,7 +707,7 @@ public static class ArgumentsReader
             // ArgsOneOf validation
             if (rule.OneOfFields is not null && setFieldNames.Contains(name))
             {
-                var alsoSet = rule.OneOfFields.Where(f => setFieldNames.Contains(f)).ToList();
+                var alsoSet = rule.OneOfFields.Where(setFieldNames.Contains).ToList();
                 if (alsoSet.Count > 0)
                     throw new InvalidOperationException(
                         $"Property '{name}' and '{string.Join("', '", alsoSet)}' are mutually exclusive ([ArgsOneOf]).");
@@ -729,43 +776,71 @@ public static class ArgumentsReader
                     CollectSingleCharFlags(mr.HasParameterNames, singleCharFlags, null);
         }
 
-        var result = new List<string>();
+        if (singleCharFlags.Count == 0 && valueFlags.Count == 0)
+            return args;
+
+        var result = new List<string>(args.Length);
+        var anyExpanded = false;
         foreach (var arg in args)
         {
             // Combined short flags: start with '-', not '--', length > 2
             if (arg.StartsWith('-') && !arg.StartsWith("--") && arg.Length > 2 && !arg.Contains('='))
             {
                 var chars = arg[1..];
-                var expanded = false;
-                // Check all but the last are known single-char flags
+                // Check all chars are known single-char flags
                 var allKnown = chars.All(c => singleCharFlags.Contains(c) || valueFlags.Contains(c));
                 if (allKnown && chars.Length > 1)
                 {
-                    expanded = true;
+                    anyExpanded = true;
                     for (var ci = 0; ci < chars.Length - 1; ci++)
                         result.Add($"-{chars[ci]}");
                     // Last char: if it's a value flag, add it alone (value comes next)
                     result.Add($"-{chars[^1]}");
                 }
-                if (!expanded) result.Add(arg);
+                else result.Add(arg);
             }
             else
             {
                 result.Add(arg);
             }
         }
-        return result.ToArray();
+        return anyExpanded ? result.ToArray() : args;
 
         static void CollectSingleCharFlags(string[]? names, HashSet<char> flags, HashSet<char>? valueSet)
         {
             if (names is null) return;
             foreach (var n in names)
-                if (n.Length == 2 && n[0] == '-')
+                if (n is ['-', _])
                 {
                     flags.Add(n[1]);
                     valueSet?.Add(n[1]);
                 }
         }
+    }
+
+    private static object ConvertTupleValue(string raw, Type tupleType, string[] dividers)
+    {
+        if (raw is ['"', _, ..] && raw[^1] == '"')
+            raw = raw[1..^1];
+
+        var typeArgs = tupleType.GetGenericArguments();
+        var parts = new string[typeArgs.Length];
+        var remaining = raw;
+        for (var i = 0; i < dividers.Length && i < typeArgs.Length - 1; i++)
+        {
+            var idx = remaining.IndexOf(dividers[i], StringComparison.Ordinal);
+            if (idx < 0)
+                throw new ArgumentException($"Expected divider '{dividers[i]}' in value '{raw}'.");
+            parts[i] = remaining[..idx];
+            remaining = remaining[(idx + dividers[i].Length)..];
+        }
+        parts[typeArgs.Length - 1] = remaining;
+
+        var values = new object[typeArgs.Length];
+        for (var i = 0; i < typeArgs.Length; i++)
+            values[i] = ConvertValue(parts[i], typeArgs[i]);
+
+        return Activator.CreateInstance(tupleType, values)!;
     }
 
     private static object ConvertValue(string raw, Type targetType)

@@ -42,7 +42,7 @@ public class GitCommitTests
             UntrackedFiles = UntrackedFiles.No,
             Amend = true,
             DryRun = true,
-            FixupCommit = "amend:123456",
+            FixupCommit = ("amend", "123456"),
             File = "file.txt",
             Message = null,
             ResetAuthor = true,

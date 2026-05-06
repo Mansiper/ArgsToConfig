@@ -1,4 +1,4 @@
-# ArgsToConfig
+# CLI arguments to configuration
 
 **ArgsToConfig** is a .NET library that maps CLI arguments directly onto a strongly-typed configuration class using attributes.  
 No manual parsing loops — just decorate your properties and call `ArgumentsReader.ToObject<T>()`.
@@ -34,9 +34,9 @@ Decorate the properties of `MyConfig` with the appropriate attributes (see below
 | `[ArgsValueForBool("true-name", "false-name")]` | `bool` property | sets `true`/`false` depending on which flag is present |
 | `[ArgsEnum]` | enum property | maps flag/value arguments to enum members decorated with `[ArgsValue]`; optionally accepts pipe-separated flag names and an `optional` parameter |
 | `[ArgsValue("value")]` | enum member | the CLI string value that maps to this enum member |
-| `[ArgsAfter("prop1", "prop2", ...)]` | any property | captures the first positional argument that appears after **any** of the listed fields are set; trying to set any of those fields afterwards throws an exception |
-| `[ArgsOneOf("prop1", "prop2", ...)]` | any property | declares that exactly one of the listed fields plus this field must be set; apply it to the **last** field in the group |
-| `[ArgsIfSet("prop")]` | any property | requires another property to be set when this one is set |
+| `[ArgsAfter("prop1", "prop2", ...)]` | any property | the field can only be assigned a value after **all** of the specified fields have been assigned; once this field receives a value, the specified fields become immutable — attempting to change them throws an exception |
+| `[ArgsOneOf("prop1", "prop2", ...)]` | nullable property | only one of the specified fields and the field it is applied to may have a value at a time; apply it to the **last** field in the group; all fields in the group must be nullable |
+| `[ArgsIfSet("prop1", "prop2", ...)]` | any property | the field can only be assigned a value if **all** specified fields are not `null` |
 | `[ArgsPathspec]` | `string[]` property | captures all arguments after `--` |
 | `[ArgsPositional(index)]` | any property | captures positional arguments by zero-based index |
 | `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand class when the named keyword is encountered; the subcommand name is defined here, not on the class |
@@ -223,8 +223,9 @@ class PushCommand : IPipelineCommand
 
 ### Mutual exclusion and conditional requirements
 
-`[ArgsOneOf]` takes a string array of field names and must be placed on the **last** field in the group.  
-`[ArgsAfter]` captures the first positional argument that appears after **any** of the listed fields are set; attempting to set any of those fields again after that throws an exception.
+`[ArgsOneOf]` takes a list of field names and must be placed on the **last** field in the group. Only one of the listed fields (including the decorated one) may have a value; all must be nullable.  
+`[ArgsAfter]` requires that all listed fields are assigned before the decorated field can receive its value. Once the decorated field is assigned, the listed fields become immutable — any attempt to change them throws an exception.  
+`[ArgsIfSet]` allows the decorated field to be assigned only when all specified fields are not `null`.
 
 ```csharp
 class CommitConfig
@@ -237,7 +238,7 @@ class CommitConfig
     public string? Message { get; set; }
 
     [ArgsHasParameter("--pathspec-file-nul")]
-    [ArgsIfSet(nameof(File))]          // error if set without File
+    [ArgsIfSet(nameof(File))]          // can only be set if File is not null
     public bool PathspecFileNul { get; set; }
 }
 ```

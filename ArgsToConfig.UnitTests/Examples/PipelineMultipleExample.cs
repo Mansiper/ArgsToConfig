@@ -14,7 +14,7 @@ exec
 internal class PipelineMultipleExample
 {
     [ArgsPipeline]
-    public IPipelineMultipleCommand1[]? Commands1 { get; set; }
+    public ICollection<IPipelineMultipleCommand1>? Commands1 { get; set; }
     [ArgsPipeline]
     public List<IPipelineMultipleCommand2>? Commands2 { get; set; }
 }

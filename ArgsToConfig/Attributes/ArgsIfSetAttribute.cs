@@ -1,11 +1,14 @@
 ﻿namespace ArgsToConfig.Attributes;
 
+/// <summary>
+/// Indicates that the field or property it is applied to can only be assigned a value if all fields with the names specified in the attribute parameters are not <see langword="null"/>.
+/// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsIfSetAttribute : Attribute
 {
-    private string[] Fields { get; }
+    private readonly string[] fields;
     public ArgsIfSetAttribute(params string[] fields) => 
-        Fields = fields;
+        this.fields = fields;
 
-    internal string[] GetFields => Fields;
+    internal string[] GetFields => fields;
 }

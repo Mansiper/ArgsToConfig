@@ -1,8 +1,9 @@
 ﻿namespace ArgsToConfig.Attributes;
 
 /// <summary>
-/// Indicates that the property it is applied to should be mapped from the argument that comes after all the properties specified in the attribute parameters.
-/// No other optional properties should have values before it. This is useful for mapping arguments that come after a certain set of other arguments, ensuring that the mapping is done in the correct order.
+/// Indicates that the field or property it is applied to must be assigned a value only after all the fields specified in the attribute parameters have been assigned.
+/// If the user attempts to modify any of the specified fields after the attributed field or property has been assigned a value, an exception will be thrown.
+/// The specified fields cannot be changed after the value is assigned to the field or property with this attribute.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsAfterAttribute : Attribute
