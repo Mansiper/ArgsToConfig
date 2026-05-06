@@ -5,13 +5,12 @@ namespace ArgsToConfig.UnitTests.Examples;
 // app connect - u user - p pass run
 internal class SubclassExample
 {
-    [ArgsObject]
+    [ArgsObject("connect")]
     public SubclassConnection Connect { get; set; } = null!;
     [ArgsHasParameter("run")]
     public bool? Run { get; set; }
 }
 
-[ArgsObjectRoot("connect")]
 internal class SubclassConnection
 {
     [ArgsValueFor("-u")]
@@ -24,8 +23,8 @@ internal class SubclassConnection
 
 internal class SubclassWithRunExample
 {
-    [ArgsObject]
-    public SubclassConnectionWithRun Connect { get; set; } = null!;
+    [ArgsObject("connect")]
+    public SubclassConnectionWithRun Connect { get; set; } = null!;  
     [ArgsHasParameter("run")]
     public bool? Run { get; set; }
 }

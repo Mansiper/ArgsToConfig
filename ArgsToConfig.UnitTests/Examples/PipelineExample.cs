@@ -93,3 +93,34 @@ internal class ArgConflictPipelineExample
     [ArgsPipeline]
     public IPipelineArgConflictCommand[]? Commands { get; set; }
 }
+
+// collection-type variants
+internal class PipelineWithListExample
+{
+    [ArgsPipeline]
+    public List<IPipelineCommand>? Commands { get; set; }
+}
+
+internal class PipelineWithIEnumerableExample
+{
+    [ArgsPipeline]
+    public IEnumerable<IPipelineCommand>? Commands { get; set; }
+}
+
+internal class PipelineWithICollectionExample
+{
+    [ArgsPipeline]
+    public ICollection<IPipelineCommand>? Commands { get; set; }
+}
+
+internal class PipelineWithIListExample
+{
+    [ArgsPipeline]
+    public IList<IPipelineCommand>? Commands { get; set; }
+}
+
+internal class PipelineWithHashSetExample
+{
+    [ArgsPipeline]
+    public HashSet<IPipelineCommand>? Commands { get; set; }
+}

@@ -24,7 +24,7 @@ internal class GitCommitExample
     [ArgsHasParameter("-v|--verbose")]
     public bool Verbose { get; set; }
 
-    [ArgsEnum]
+    [ArgsEnum("-u|--untracked-files", true, DefaultValue = "Normal")]
     public UntrackedFiles UntrackedFiles { get; set; }
 
     [ArgsHasParameter("--amend")]
@@ -64,7 +64,7 @@ internal class GitCommitExample
     [ArgsValueFor("--date")]
     public DateTime? Date { get; set; }
 
-    [ArgsEnum]
+    [ArgsEnum("--cleanup", DefaultValue = "Default")]
     public CleanupMode Cleanup { get; set; }
     
     [ArgsValueForBool("--status", "--no-status")]
@@ -101,7 +101,6 @@ internal enum CommitMode
     Patch
 }
 
-[ArgsValueFor("-u|--untracked-files", true, DefaultValue = nameof(Normal))]
 internal enum UntrackedFiles
 {
     [ArgsValue("normal")]
@@ -112,7 +111,6 @@ internal enum UntrackedFiles
     No,
 }
 
-[ArgsValueFor("--cleanup", DefaultValue = nameof(Default))]
 internal enum CleanupMode
 {
     Default,

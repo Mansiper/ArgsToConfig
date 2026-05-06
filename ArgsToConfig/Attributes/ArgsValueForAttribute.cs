@@ -4,7 +4,7 @@
 /// The value of the parameter with the name specified in the attribute.
 /// </summary>
 /// <remarks>Works with any type, but string by default. Otherwise, tries to convert the value to the property type.</remarks>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Enum)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsValueForAttribute : Attribute
 {
     private string Name { get; }

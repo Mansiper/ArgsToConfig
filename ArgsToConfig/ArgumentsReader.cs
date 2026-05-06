@@ -24,24 +24,23 @@ public static class ArgumentsReader
             var hasParam = prop.GetCustomAttribute<ArgsHasParameterAttribute>();
             var valueFor = prop.GetCustomAttribute<ArgsValueForAttribute>();
             var valueForBool = prop.GetCustomAttribute<ArgsValueForBoolAttribute>();
-            var isEnum = prop.GetCustomAttribute<ArgsEnumAttribute>() is not null;
+            var argsEnum = prop.GetCustomAttribute<ArgsEnumAttribute>();
+            var isEnum = argsEnum is not null;
             var after = prop.GetCustomAttribute<ArgsAfterAttribute>();
             var oneOf = prop.GetCustomAttribute<ArgsOneOfAttribute>();
             var ifSet = prop.GetCustomAttribute<ArgsIfSetAttribute>();
             var isPathspec = prop.GetCustomAttribute<ArgsPathspecAttribute>() is not null;
-            var isObject = prop.GetCustomAttribute<ArgsObjectAttribute>() is not null;
+            var isObject = prop.GetCustomAttribute<ArgsObjectAttribute>();
             var positional = prop.GetCustomAttribute<ArgsPositionalAttribute>();
 
-            // ArgsObject – sub-object with ArgsObjectRoot on its type
-            if (isObject)
+            // ArgsObject – sub-object with root name on the attribute
+            if (isObject is not null)
             {
-                var propType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
-                var rootAttr = propType.GetCustomAttribute<ArgsObjectRootAttribute>();
                 rules.Add(new PropertyRule
                 {
                     Property = prop,
                     IsObject = true,
-                    ObjectRootName = rootAttr?.GetName
+                    ObjectRootName = isObject.GetName
                 });
                 continue;
             }
@@ -74,8 +73,6 @@ public static class ArgumentsReader
                 var enumType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
                 if (enumType.IsEnum)
                 {
-                    // Check if enum itself has ArgsValueFor
-                    var enumValueFor = enumType.GetCustomAttribute<ArgsValueForAttribute>();
                     var members = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
                     enumMemberRules = members.Select(m =>
                     {
@@ -89,9 +86,12 @@ public static class ArgumentsReader
                         };
                     }).ToArray();
 
-                    // Promote enum-level ArgsValueFor to property rule
-                    if (enumValueFor is not null && valueFor is null)
-                        valueFor = enumValueFor;
+                    // Promote ArgsEnum name params to valueFor if specified on the attribute
+                    if (argsEnum!.GetNames is not null && valueFor is null)
+                        valueFor = new ArgsValueForAttribute(string.Join("|", argsEnum.GetNames), argsEnum.GetOptional)
+                        {
+                            DefaultValue = argsEnum.DefaultValue
+                        };
                 }
             }
 
@@ -126,51 +126,80 @@ public static class ArgumentsReader
         var objectRules = rules.Where(r => r.IsObject).ToList();
         if (objectRules.Count > 0)
         {
-            // Find the subcommand keyword (first non-option positional arg)
-            var subcmdIndex = -1;
-            string? subcmdName = null;
-            for (var si = 0; si < args.Length; si++)
+            // Build a map: subcommand name → rule
+            var subcmdMap = new Dictionary<string, PropertyRule>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in objectRules)
+                if (r.ObjectRootName is not null)
+                    subcmdMap[r.ObjectRootName] = r;
+
+            var nonObjectRules = rules.Where(r => !r.IsObject).ToList();
+            var parentArgNames = BuildKnownArgNames(nonObjectRules);
+
+            // Collect root positional (non-dash) parameter names so we can reclaim them from subcommand segments
+            var rootPositionalNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in nonObjectRules)
+                if (r.HasParameterNames is not null)
+                    foreach (var n in r.HasParameterNames.Where(n => !n.StartsWith('-')))
+                        rootPositionalNames.Add(n);
+
+            // Validate: no arg name conflicts between parent non-object rules and any subcommand
+            foreach (var (subcmdName2, subRule) in subcmdMap)
             {
-                if (!args[si].StartsWith('-'))
+                var subType2 = Nullable.GetUnderlyingType(subRule.Property.PropertyType) ?? subRule.Property.PropertyType;
+                var subArgNames2 = BuildKnownArgNames(BuildRules(subType2));
+                var conflicts2 = parentArgNames.Intersect(subArgNames2, StringComparer.OrdinalIgnoreCase).ToList();
+                if (conflicts2.Count > 0)
+                    throw new ArgumentException(
+                        $"Argument name conflict between root and subcommand '{subcmdName2}': {string.Join(", ", conflicts2)}.");
+            }
+
+            // Segment args by subcommand keywords; non-subcommand args go to the root
+            // Each segment: (rule, startIndex, args slice)
+            var segments = new List<(PropertyRule Rule, List<string> SegArgs)>();
+            PropertyRule? currentRule = null;
+            List<string>? currentSegArgs = null;
+            var rootArgs = new List<string>();
+
+            foreach (var a in args)
+            {
+                if (!a.StartsWith('-') && subcmdMap.TryGetValue(a, out var foundRule))
                 {
-                    subcmdIndex = si;
-                    subcmdName = args[si];
-                    break;
+                    // Start a new segment for this subcommand
+                    currentRule = foundRule;
+                    currentSegArgs = [];
+                    segments.Add((currentRule, currentSegArgs));
+                }
+                else if (currentSegArgs is not null && !a.StartsWith('-') && rootPositionalNames.Contains(a))
+                {
+                    // Root positional name encountered inside a subcommand segment — belongs to root
+                    rootArgs.Add(a);
+                }
+                else if (currentSegArgs is not null)
+                {
+                    currentSegArgs.Add(a);
+                }
+                else
+                {
+                    rootArgs.Add(a);
                 }
             }
 
-            if (subcmdName is null)
+            if (segments.Count == 0)
                 throw new ArgumentException("No subcommand specified.");
 
-            var matchedRule = objectRules.FirstOrDefault(r =>
-                string.Equals(r.ObjectRootName, subcmdName, StringComparison.OrdinalIgnoreCase));
+            // Apply each subcommand segment
+            foreach (var (segRule, segArgs) in segments)
+            {
+                var subType = Nullable.GetUnderlyingType(segRule.Property.PropertyType) ?? segRule.Property.PropertyType;
+                var subObj = Activator.CreateInstance(subType)!;
+                var subRules = BuildRules(subType);
+                ApplyRules(subObj, subRules, segArgs.ToArray());
+                segRule.Property.SetValue(obj, subObj);
+            }
 
-            if (matchedRule is null)
-                throw new ArgumentException($"Unknown subcommand: '{subcmdName}'.");
-
-            // Instantiate the sub-object and recurse
-            var subType = Nullable.GetUnderlyingType(matchedRule.Property.PropertyType)
-                          ?? matchedRule.Property.PropertyType;
-            var subObj = Activator.CreateInstance(subType)!;
-            var subArgs = args[(subcmdIndex + 1)..];
-            var subRules = BuildRules(subType);
-
-            // Validate: no arg name conflicts between parent non-object rules and the matched sub-object
-            var nonObjectRules = rules.Where(r => !r.IsObject).ToList();
-            var parentArgNames = BuildKnownArgNames(nonObjectRules);
-            var subArgNames = BuildKnownArgNames(subRules);
-            var conflicts = parentArgNames.Intersect(subArgNames, StringComparer.OrdinalIgnoreCase).ToList();
-            if (conflicts.Count > 0)
-                throw new ArgumentException(
-                    $"Argument name conflict between root and subcommand '{subcmdName}': {string.Join(", ", conflicts)}.");
-
-            ApplyRules(subObj, subRules, subArgs);
-            matchedRule.Property.SetValue(obj, subObj);
-
-            // Continue processing remaining (non-object) rules against the full args,
-            // ignoring unknown args consumed by the sub-object.
+            // Process non-object rules against root args (args before any subcommand)
             if (nonObjectRules.Count > 0)
-                ApplyRules(obj, nonObjectRules, args, ignoreUnknown: true);
+                ApplyRules(obj, nonObjectRules, rootArgs.ToArray(), ignoreUnknown: true);
             return;
         }
 
@@ -318,12 +347,41 @@ public static class ArgumentsReader
                             array.SetValue(list[ai], ai);
                         pr.Property.SetValue(obj, array);
                     }
-                    else if (propType.IsGenericType && propType.GetGenericTypeDefinition() == typeof(List<>))
+                    else if (propType.IsGenericType)
                     {
-                        var listObj = (System.Collections.IList)Activator.CreateInstance(propType)!;
-                        foreach (var item in list)
-                            listObj.Add(item);
-                        pr.Property.SetValue(obj, listObj);
+                        var genericDef = propType.GetGenericTypeDefinition();
+
+                        // Interface collection types: materialise as List<T>
+                        var listType = typeof(List<>).MakeGenericType(elementType);
+                        if (genericDef == typeof(IEnumerable<>)
+                            || genericDef == typeof(ICollection<>)
+                            || genericDef == typeof(IList<>)
+                            || genericDef == typeof(IReadOnlyList<>)
+                            || genericDef == typeof(IReadOnlyCollection<>))
+                        {
+                            var listObj = (System.Collections.IList)Activator.CreateInstance(listType)!;
+                            foreach (var item in list) listObj.Add(item);
+                            pr.Property.SetValue(obj, listObj);
+                        }
+                        else
+                        {
+                            // Concrete generic collection: try to instantiate and add via ICollection<T>
+                            var collectionInterface = typeof(ICollection<>).MakeGenericType(elementType);
+                            if (collectionInterface.IsAssignableFrom(propType))
+                            {
+                                var collObj = Activator.CreateInstance(propType)!;
+                                var addMethod = collectionInterface.GetMethod("Add")!;
+                                foreach (var item in list) addMethod.Invoke(collObj, [item]);
+                                pr.Property.SetValue(obj, collObj);
+                            }
+                            else
+                            {
+                                // Fallback: assign as List<T>
+                                var listObj = (System.Collections.IList)Activator.CreateInstance(listType)!;
+                                foreach (var item in list) listObj.Add(item);
+                                pr.Property.SetValue(obj, listObj);
+                            }
+                        }
                     }
                 }
             }

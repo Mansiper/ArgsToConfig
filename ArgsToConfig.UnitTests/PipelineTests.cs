@@ -90,4 +90,89 @@ public class PipelineTests
         act.Should().Throw<ArgumentException>()
             .WithMessage("*uses another pipeline command name*");
     }
+
+    [Test]
+    public void Pipeline_ShouldSucceed_WithListCollection()
+    {
+        // Arrange
+        var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
+
+        // Act
+        var result = ArgumentsReader.ToObject<PipelineWithListExample>(args);
+
+        // Assert
+        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        {
+            new PullCommand { Fetch = true },
+            new CommitCommand { Message = "text" }
+        }, o => o.RespectingRuntimeTypes());
+    }
+
+    [Test]
+    public void Pipeline_ShouldSucceed_WithIEnumerableCollection()
+    {
+        // Arrange
+        var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
+
+        // Act
+        var result = ArgumentsReader.ToObject<PipelineWithIEnumerableExample>(args);
+
+        // Assert
+        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        {
+            new PullCommand { Fetch = true },
+            new CommitCommand { Message = "text" }
+        }, o => o.RespectingRuntimeTypes());
+    }
+
+    [Test]
+    public void Pipeline_ShouldSucceed_WithICollectionCollection()
+    {
+        // Arrange
+        var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
+
+        // Act
+        var result = ArgumentsReader.ToObject<PipelineWithICollectionExample>(args);
+
+        // Assert
+        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        {
+            new PullCommand { Fetch = true },
+            new CommitCommand { Message = "text" }
+        }, o => o.RespectingRuntimeTypes());
+    }
+
+    [Test]
+    public void Pipeline_ShouldSucceed_WithIListCollection()
+    {
+        // Arrange
+        var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
+
+        // Act
+        var result = ArgumentsReader.ToObject<PipelineWithIListExample>(args);
+
+        // Assert
+        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        {
+            new PullCommand { Fetch = true },
+            new CommitCommand { Message = "text" }
+        }, o => o.RespectingRuntimeTypes());
+    }
+
+    [Test]
+    public void Pipeline_ShouldSucceed_WithHashSetCollection()
+    {
+        // Arrange
+        var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
+
+        // Act
+        var result = ArgumentsReader.ToObject<PipelineWithHashSetExample>(args);
+
+        // Assert
+        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        {
+            new PullCommand { Fetch = true },
+            new CommitCommand { Message = "text" }
+        }, o => o.RespectingRuntimeTypes());
+    }
 }

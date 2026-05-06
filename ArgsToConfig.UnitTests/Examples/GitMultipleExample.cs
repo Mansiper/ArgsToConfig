@@ -13,20 +13,18 @@ git commit [-m <msg>]
 
 internal class GitMultipleExample
 {
-    [ArgsObject]
+    [ArgsObject("clone")]
     public GitMultipleClone? Clone { get; set; }
 
-    [ArgsObject]
+    [ArgsObject("commit")]
     public GitMultipleCommit? Commit { get; set; }
 }
 
-[ArgsObjectRoot("clone")]
 internal class GitMultipleClone
 {
     public string? Path { get; set; }
 }
 
-[ArgsObjectRoot("commit")]
 internal class GitMultipleCommit
 {
     [ArgsValueFor("-m|--message")]
