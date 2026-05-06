@@ -11,6 +11,8 @@ public class ArgsHasParameterAttribute : Attribute
     private readonly string name;
     private readonly int position;
 
+    public string? Description { get; set; }
+
     public ArgsHasParameterAttribute(string name, int position = -1) => 
         (this.name, this.position) = (name, position);
 

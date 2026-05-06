@@ -7,6 +7,9 @@
 public class ArgsIfSetAttribute : Attribute
 {
     private readonly string[] fields;
+
+    public string? Description { get; set; }
+
     public ArgsIfSetAttribute(params string[] fields) => 
         this.fields = fields;
 

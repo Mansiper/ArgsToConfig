@@ -8,6 +8,9 @@
 public class ArgsObjectAttribute : Attribute
 {
     private readonly string name;
+
+    public string? Description { get; set; }
+
     public ArgsObjectAttribute(string name) =>
         this.name = name;
 

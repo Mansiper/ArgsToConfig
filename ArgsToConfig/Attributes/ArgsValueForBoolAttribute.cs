@@ -10,6 +10,9 @@ public class ArgsValueForBoolAttribute : Attribute
 {
     private readonly string trueName;
     private readonly string falseName;
+    
+    public string? Description { get; set; }
+
     public ArgsValueForBoolAttribute(string trueName, string falseName) =>
         (this.trueName, this.falseName) = (trueName, falseName);
 

@@ -9,6 +9,9 @@
 public class ArgsPositionalAttribute : Attribute
 {
     private readonly int position;
+
+    public string? Description { get; set; }
+
     public ArgsPositionalAttribute(int position) => 
         this.position = position;
 

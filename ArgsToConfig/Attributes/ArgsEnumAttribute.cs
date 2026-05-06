@@ -12,6 +12,7 @@ public class ArgsEnumAttribute : Attribute
     private readonly bool optional;
 
     public string? DefaultValue { get; set; }
+    public string? Description { get; set; }
 
     public ArgsEnumAttribute() { }
 

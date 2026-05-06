@@ -9,6 +9,9 @@
 public class ArgsOneOfAttribute : Attribute
 {
     private readonly string[] fields;
+    
+    public string? Description { get; set; }
+
     public ArgsOneOfAttribute(params string[] fields) => 
         this.fields = fields;
 

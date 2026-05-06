@@ -9,6 +9,8 @@ public class ArgsTupleAttribute : Attribute
 {
     private readonly string[] dividers;
 
+    public string? Description { get; set; }
+
     public ArgsTupleAttribute(params string[] dividers) =>
         this.dividers = dividers;
 

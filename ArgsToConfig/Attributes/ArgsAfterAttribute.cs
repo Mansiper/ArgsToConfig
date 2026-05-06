@@ -9,6 +9,7 @@
 public class ArgsAfterAttribute : Attribute
 {
     private readonly string[] fields;
+    public string? Description { get; set; }
 
     public ArgsAfterAttribute(params string[] fields) => 
         this.fields = fields;

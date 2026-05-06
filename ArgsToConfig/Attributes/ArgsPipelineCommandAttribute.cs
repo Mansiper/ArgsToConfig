@@ -8,6 +8,9 @@
 public class ArgsPipelineCommandAttribute : Attribute
 {
     private readonly string name;
+
+    public string? Description { get; set; }
+
     public ArgsPipelineCommandAttribute(string name) => 
         this.name = name;
 

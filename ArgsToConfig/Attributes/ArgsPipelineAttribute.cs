@@ -5,4 +5,7 @@
 /// </summary>
 /// <remarks>Works with interface collection types only.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsPipelineAttribute : Attribute;
+public class ArgsPipelineAttribute : Attribute
+{
+    public string? Description { get; set; }
+}
