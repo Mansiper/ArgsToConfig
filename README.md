@@ -45,6 +45,12 @@ Decorate the properties of `MyConfig` with the appropriate attributes (see below
 | `[ArgsPipeline]` | any collection of an interface | collects an ordered sequence of pipeline command objects that all implement the property's element interface |
 | `[ArgsPipelineCommand("name")]` | class | registers a class as a named pipeline command; the class must implement the interface declared on the `[ArgsPipeline]` property |
 | `[ArgsTuple("div1", ...)]` | tuple property | splits a single argument value into the elements of a value tuple using the supplied dividers; supports a cyclic (default) and a per-part mode via `PartsDividers` |
+| `[ArgsConvertor(typeof(T))]` | any property | applies a custom `IArgsConvertor` to convert the raw string value into the property's type |
+| `[ArgsAcceptFromAmong("a", "b", ...)]` | string (or collection of string) property | rejects any value that is not in the supplied set; throws `ArgumentException` otherwise |
+| `[ArgsExistingOnlyFile]` | string property | rejects the value if it is not a path to an existing file |
+| `[ArgsExistingOnlyDirectory]` | string property | rejects the value if it is not a path to an existing directory |
+| `[ArgsLegalFileNamesOnly]` | string property | rejects the value if it contains characters that are illegal in a file name on the current OS |
+| *(any `ValidationAttribute`)* | any property | standard `System.ComponentModel.DataAnnotations` attributes (e.g. `[Required]`, `[Range]`, `[EmailAddress]`) are evaluated after parsing and throw `ValidationException` on failure |
 
 ---
 
@@ -308,6 +314,127 @@ class CommitConfig
     public bool PathspecFileNul { get; set; }
 }
 ```
+
+### Custom convertor (`[ArgsConvertor]`)
+
+When the built-in type conversion is not sufficient, implement `IArgsConvertor` and reference it with `[ArgsConvertor]`.
+
+```csharp
+// myapp --ip 192.168.1.1
+public class IPv4ToIntArrayConvertor : IArgsConvertor
+{
+    public object Convert(string value)
+    {
+        // <some magic appears here>
+        return result;
+    }
+}
+
+class AppConfig
+{
+    [ArgsValueFor("--ip")]
+    [ArgsConvertor(typeof(IPv4ToIntArrayConvertor))]
+    public int[]? IpAddress { get; set; }
+}
+// config.IpAddress → [192, 168, 1, 1]
+```
+
+---
+
+### Value validation attributes
+
+#### `[ArgsAcceptFromAmong]`
+
+Restricts the accepted values to a fixed set. Throws `ArgumentException` when the parsed value is not in the list. Works with both scalar and collection properties.
+
+```csharp
+// myapp --format png
+class AppConfig
+{
+    [ArgsValueFor("--format")]
+    [ArgsAcceptFromAmong("jpg", "png", "gif")]
+    public string? FileExtension { get; set; }
+
+    // myapp --formats jpg --formats gif
+    [ArgsValueFor("--formats")]
+    [ArgsAcceptFromAmong("jpg", "png", "gif")]
+    public string[]? FileExtensions { get; set; }
+}
+```
+
+#### `[ArgsExistingOnlyFile]`
+
+Rejects the value unless it is a path to an **existing file** on the filesystem.
+
+```csharp
+class AppConfig
+{
+    [ArgsValueFor("--file")]
+    [ArgsExistingOnlyFile]
+    public string? FilePath { get; set; }
+}
+```
+
+#### `[ArgsExistingOnlyDirectory]`
+
+Rejects the value unless it is a path to an **existing directory** on the filesystem.
+
+```csharp
+class AppConfig
+{
+    [ArgsValueFor("--dir")]
+    [ArgsExistingOnlyDirectory]
+    public string? DirPath { get; set; }
+}
+```
+
+#### `[ArgsLegalFileNamesOnly]`
+
+Rejects the value if it contains characters that are **illegal in a file name** on the current operating system.
+
+```csharp
+class AppConfig
+{
+    [ArgsValueFor("--name")]
+    [ArgsLegalFileNamesOnly]
+    public string? FileName { get; set; }
+}
+```
+
+---
+
+### `System.ComponentModel.DataAnnotations` support
+
+Any standard `ValidationAttribute` (e.g. `[Required]`, `[Range]`, `[EmailAddress]`, `[MaxLength]`, `[RegularExpression]`) placed on a property is evaluated after parsing. A `ValidationException` is thrown when a constraint is violated.
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+class UserConfig
+{
+    [ArgsValueFor("--name")]
+    [Required]
+    public string Name { get; set; } = "";
+
+    [ArgsValueFor("--email")]
+    [EmailAddress]
+    public string? Email { get; set; }
+
+    [ArgsValueFor("--count")]
+    [Range(1, 100)]
+    public int Count { get; set; }
+
+    [ArgsValueFor("--tag")]
+    [MaxLength(10)]
+    public string? Tag { get; set; }
+
+    [ArgsValueFor("--code")]
+    [RegularExpression("^[A-Z]{2,5}$")]
+    public string? Code { get; set; }
+}
+```
+
+---
 
 ### Inline and combined short flags
 
