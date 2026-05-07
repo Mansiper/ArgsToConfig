@@ -30,7 +30,7 @@ public class GitCommitTests
             "--allow-empty-message", "--no-verify", "-e", "--author=\"John Doe\"",
             "--date=2024-06-01", "--cleanup=strip", "--status",
             "-i", "--pathspec-from-file=paths.txt", "--pathspec-file-nul",
-            "--trailer", "token=value", "--trailer", "token2:value2", "-S", "keyid"
+            "--trailer", "number1=1", "--trailer", "number2:234", "-S", "keyid"
         };
 
         var expected = new GitCommitExample
@@ -57,7 +57,7 @@ public class GitCommitTests
             IncludeOnly = IncludeOnly.Include,
             PathspecFromFile = "paths.txt",
             PathspecFileNul = true,
-            Trailer = ["token=value", "token2:value2"],
+            Trailer = [("number1", 1), ("number2", 234)],
             SignKeyId = "keyid"
         };
 

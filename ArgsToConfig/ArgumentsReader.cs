@@ -114,6 +114,7 @@ public static class ArgumentsReader
                 EnumMemberRules = enumMemberRules,
                 PositionalIndex = positional?.GetPosition ?? -1,
                 TupleDividers = argsTuple?.GetDividers,
+                TuplePartsDividers = argsTuple?.PartsDividers ?? false,
                 IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
                     && !isEnum && after is null && !isPathspec && positional is null
             });
@@ -549,7 +550,7 @@ public static class ArgumentsReader
             else if (value is not null)
             {
                 var converted = rule.TupleDividers is not null && propType.IsGenericType
-                    ? ConvertTupleValue(value, propType, rule.TupleDividers)
+                    ? ConvertTupleValue(value, propType, rule.TupleDividers, rule.TuplePartsDividers)
                     : ConvertValue(value, propType);
                 SetTracked(rule.Property, converted, i);
             }
@@ -818,7 +819,7 @@ public static class ArgumentsReader
         }
     }
 
-    private static object ConvertTupleValue(string raw, Type tupleType, string[] dividers)
+    private static object ConvertTupleValue(string raw, Type tupleType, string[] dividers, bool partsDividers)
     {
         if (raw is ['"', _, ..] && raw[^1] == '"')
             raw = raw[1..^1];
@@ -826,13 +827,16 @@ public static class ArgumentsReader
         var typeArgs = tupleType.GetGenericArguments();
         var parts = new string[typeArgs.Length];
         var remaining = raw;
-        for (var i = 0; i < dividers.Length && i < typeArgs.Length - 1; i++)
+        for (var i = 0; i < typeArgs.Length - 1; i++)
         {
-            var idx = remaining.IndexOf(dividers[i], StringComparison.Ordinal);
+            var divider = partsDividers
+                ? dividers[i]
+                : dividers[i % dividers.Length];
+            var idx = remaining.IndexOf(divider, StringComparison.Ordinal);
             if (idx < 0)
-                throw new ArgumentException($"Expected divider '{dividers[i]}' in value '{raw}'.");
+                throw new ArgumentException($"Expected divider '{divider}' in value '{raw}'.");
             parts[i] = remaining[..idx];
-            remaining = remaining[(idx + dividers[i].Length)..];
+            remaining = remaining[(idx + divider.Length)..];
         }
         parts[typeArgs.Length - 1] = remaining;
 

@@ -47,6 +47,7 @@ internal sealed class PropertyRule
 
     // ArgsTuple (split value into tuple components)
     public string[]? TupleDividers { get; init; }
+    public bool TuplePartsDividers { get; init; }
 
     // Implicit positional (no attributes – filled from positional args in order)
     public bool IsImplicitPositional { get; init; }

@@ -248,4 +248,86 @@ public class TupleTests
         // Assert
         result.Should().BeEquivalentTo(expected);
     }
+
+    // ── PartsDividers = false (cyclic) ────────────────────────────────────────
+
+    [Test]
+    public void StringInt_SingleDivider_ShouldSucceed()
+    {
+        // Arrange
+        var args = new[] { "--sc2", "hello;42" };
+
+        var expected = new TupleExample
+        {
+            StringInt = ("hello", 42)
+        };
+
+        // Act
+        var result = ArgumentsReader.ToObject<TupleExample>(args);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void ThreeInts_SingleDividerCyclic_ShouldSucceed()
+    {
+        // Arrange
+        var args = new[] { "--i3", "1,2,3" };
+
+        var expected = new TupleExample
+        {
+            ThreeInts = (1, 2, 3)
+        };
+
+        // Act
+        var result = ArgumentsReader.ToObject<TupleExample>(args);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void ThreeInts_MissingDivider_ShouldFail()
+    {
+        // Arrange
+        var args = new[] { "--i3", "1,2" };
+
+        // Act
+        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Test]
+    public void AltDividers_CyclicPattern_ShouldSucceed()
+    {
+        // Arrange – dividers "-" and ":" repeat: "a-1:b" splits as ["a", "1", "b"]
+        var args = new[] { "--alt", "a-1:b" };
+
+        var expected = new TupleExample
+        {
+            AltDividers = ("a", 1, "b")
+        };
+
+        // Act
+        var result = ArgumentsReader.ToObject<TupleExample>(args);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void AltDividers_MissingSecondDivider_ShouldFail()
+    {
+        // Arrange – second divider ":" is missing
+        var args = new[] { "--alt", "a-1b" };
+
+        // Act
+        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
 }

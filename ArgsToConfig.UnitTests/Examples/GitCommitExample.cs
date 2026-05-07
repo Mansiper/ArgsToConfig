@@ -82,7 +82,8 @@ internal class GitCommitExample
     public bool PathspecFileNul { get; set; }
 
     [ArgsValueFor("--trailer")]
-    public string[]? Trailer { get; set; }
+    [ArgsTuple(["=", ":"])]
+    public List<(string, int)>? Trailer { get; set; }
 
     [ArgsValueFor("-S", true)]
     [ArgsIfSet(nameof(Trailer))]

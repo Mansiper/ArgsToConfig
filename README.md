@@ -23,6 +23,8 @@ var config = ArgumentsReader.ToObject<MyConfig>(args);
 
 Decorate the properties of `MyConfig` with the appropriate attributes (see below) and the library handles the rest.
 
+> 💡 **Optional arguments** — if an argument is optional, simply declare the property as a nullable type (e.g. `string?`, `bool?`, `int?`). When the argument is absent, the property will remain `null`.
+
 ---
 
 ## Attributes
@@ -42,6 +44,7 @@ Decorate the properties of `MyConfig` with the appropriate attributes (see below
 | `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand class when the named keyword is encountered; the subcommand name is defined here, not on the class |
 | `[ArgsPipeline]` | any collection of an interface | collects an ordered sequence of pipeline command objects that all implement the property's element interface |
 | `[ArgsPipelineCommand("name")]` | class | registers a class as a named pipeline command; the class must implement the interface declared on the `[ArgsPipeline]` property |
+| `[ArgsTuple("div1", ...)]` | tuple property | splits a single argument value into the elements of a value tuple using the supplied dividers; supports a cyclic (default) and a per-part mode via `PartsDividers` |
 
 ---
 
@@ -220,6 +223,69 @@ class PushCommand : IPipelineCommand
     public bool? Force { get; set; }
 }
 ```
+
+### Tuple splitting (`[ArgsTuple]`)
+
+`[ArgsTuple]` works together with `[ArgsValueFor]` on a **value tuple** property. It splits the single string value into the individual tuple elements using the dividers you supply.
+
+#### `PartsDividers = false` (default) — cyclic dividers
+
+All parts are separated using the same dividers, applied cyclically. You only need to supply one divider (or a short pattern) regardless of how many elements the tuple has.
+
+```csharp
+// myapp --point "3,7"        => (int, int)        single divider ","
+// myapp --rgb "255,128,0"    => (int, int, int)    same divider repeated automatically
+// myapp --pair "hello-42"    => (string, int)      single divider "-"
+class Config
+{
+    [ArgsValueFor("--point")]
+    [ArgsTuple(",")]
+    public (int, int)? Point { get; set; }
+
+    [ArgsValueFor("--rgb")]
+    [ArgsTuple(",")]
+    public (int, int, int)? Rgb { get; set; }
+
+    [ArgsValueFor("--pair")]
+    [ArgsTuple("-")]
+    public (string, int)? Pair { get; set; }
+}
+```
+
+You can also provide a short *repeating pattern* of dividers. For a 4-element tuple with `[ArgsTuple("-", ":")]`, the splits are applied as `-`, `:`, `-` (cycling back to the start).
+
+#### `PartsDividers = true` — per-part dividers
+
+Each divider separates a specific consecutive pair of parts (divider *i* sits between part *i* and part *i+1*). Supply exactly **N − 1** dividers for an N-element tuple; each may be different.
+
+```csharp
+// myapp --dsc "1.5_hello.x"   =>  (double, string, char)
+// splits:  "1.5" | '_' | "hello" | '.' | "x"
+class Config
+{
+    [ArgsValueFor("--dsc")]
+    [ArgsTuple("_", ".", PartsDividers = true)]
+    public (double, string, char)? DoubleStringChar { get; set; }
+}
+```
+
+### Repeated flags as a collection
+
+When the same flag appears multiple times, you can collect all its values into an array or list by declaring the property as a collection type.
+
+```csharp
+// myapp --exclude foo --exclude bar --exclude baz
+class AppConfig
+{
+    [ArgsValueFor("--exclude")]
+    public string[]? Exclude { get; set; }
+}
+// config.Exclude → ["foo", "bar", "baz"]
+```
+
+Any type that implements `ICollection<T>` is supported (e.g. `List<string>`, `string[]`).
+
+---
 
 ### Mutual exclusion and conditional requirements
 
