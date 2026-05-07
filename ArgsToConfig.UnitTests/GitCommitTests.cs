@@ -1,4 +1,4 @@
-﻿using ArgsToConfig.UnitTests.Examples;
+using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
 namespace ArgsToConfig.UnitTests;
@@ -62,7 +62,7 @@ public class GitCommitTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<GitCommitExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<GitCommitExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -82,7 +82,7 @@ public class GitCommitTests
         };
      
         // Act
-        var result = ArgumentsReader.ToObject<GitCommitExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<GitCommitExample>(args);
         
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -103,7 +103,7 @@ public class GitCommitTests
         };
      
         // Act
-        var result = ArgumentsReader.ToObject<GitCommitExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<GitCommitExample>(args);
         
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -114,12 +114,13 @@ public class GitCommitTests
     {
         // Arrange
         var args = new[] { "commit", "-a", "--interactive" };
-        
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<GitCommitExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<GitCommitExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: add message check
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -127,12 +128,13 @@ public class GitCommitTests
     {
         // Arrange
         var args = new[] { "commit", "-u", "wrong" };
-        
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<GitCommitExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<GitCommitExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: add message check
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -140,12 +142,13 @@ public class GitCommitTests
     {
         // Arrange
         var args = new[] { "commit", "-F", "-e" };
-        
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<GitCommitExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<GitCommitExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: add message check
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -162,7 +165,7 @@ public class GitCommitTests
         };
      
         // Act
-        var result = ArgumentsReader.ToObject<GitCommitExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<GitCommitExample>(args);
         
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -173,12 +176,13 @@ public class GitCommitTests
     {
         // Arrange
         var args = new[] { "commit", "--date=wrong" };
-        
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<GitCommitExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<GitCommitExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: add message check
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -186,12 +190,13 @@ public class GitCommitTests
     {
         // Arrange
         var args = new[] { "commit", "--no-status", "--status" };
-        
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<GitCommitExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<GitCommitExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: add message check
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -199,12 +204,13 @@ public class GitCommitTests
     {
         // Arrange
         var args = new[] { "commit", "--not-status" };
-        
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<GitCommitExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<GitCommitExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: add message check
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -212,12 +218,13 @@ public class GitCommitTests
     {
         // Arrange
         var args = new[] { "commit", "--pathspec-file-nul" };
-        
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<GitCommitExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<GitCommitExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: add message check
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -235,7 +242,7 @@ public class GitCommitTests
         };
      
         // Act
-        var result = ArgumentsReader.ToObject<GitCommitExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<GitCommitExample>(args);
         
         // Assert
         result.Should().BeEquivalentTo(expected);

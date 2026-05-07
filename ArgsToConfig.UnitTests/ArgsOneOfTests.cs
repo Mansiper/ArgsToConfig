@@ -13,10 +13,10 @@ public class ArgsOneOfTests
         var args = new[] { "--file", "data.csv" };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsOneOfSingleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsOneOfSingleExample>(args);
 
         // Assert
-        result.File.Should().Be("data.csv");
+        result!.File.Should().Be("data.csv");
         result.Url.Should().BeNull();
     }
 
@@ -27,10 +27,10 @@ public class ArgsOneOfTests
         var args = new[] { "--url", "https://example.com" };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsOneOfSingleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsOneOfSingleExample>(args);
 
         // Assert
-        result.Url.Should().Be("https://example.com");
+        result!.Url.Should().Be("https://example.com");
         result.File.Should().BeNull();
     }
 
@@ -41,10 +41,10 @@ public class ArgsOneOfTests
         var args = new[] { "--output", "out.txt" };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsOneOfSingleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsOneOfSingleExample>(args);
 
         // Assert
-        result.File.Should().BeNull();
+        result!.File.Should().BeNull();
         result.Url.Should().BeNull();
         result.Output.Should().Be("out.txt");
     }
@@ -56,11 +56,11 @@ public class ArgsOneOfTests
         var args = new[] { "--file", "data.csv", "--url", "https://example.com" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ArgsOneOfSingleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ArgsOneOfSingleExample>(args);
 
         // Assert
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*mutually exclusive*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -70,11 +70,11 @@ public class ArgsOneOfTests
         var args = new[] { "--file", "data.csv", "--url", "https://example.com", "--zip", "archive.zip" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ArgsOneOfMultipleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ArgsOneOfMultipleExample>(args);
 
         // Assert
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*mutually exclusive*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -84,11 +84,11 @@ public class ArgsOneOfTests
         var args = new[] { "--file", "data.csv", "--zip", "archive.zip", "--tar", "archive.tar" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ArgsOneOfMultipleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ArgsOneOfMultipleExample>(args);
 
         // Assert
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*mutually exclusive*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -98,10 +98,10 @@ public class ArgsOneOfTests
         var args = new[] { "--file", "data.csv", "--zip", "archive.zip" };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsOneOfMultipleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsOneOfMultipleExample>(args);
 
         // Assert
-        result.File.Should().Be("data.csv");
+        result!.File.Should().Be("data.csv");
         result.Url.Should().BeNull();
         result.Zip.Should().Be("archive.zip");
         result.Tar.Should().BeNull();
@@ -114,10 +114,10 @@ public class ArgsOneOfTests
         var args = Array.Empty<string>();
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsOneOfMultipleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsOneOfMultipleExample>(args);
 
         // Assert
-        result.File.Should().BeNull();
+        result!.File.Should().BeNull();
         result.Url.Should().BeNull();
         result.Zip.Should().BeNull();
         result.Tar.Should().BeNull();

@@ -18,7 +18,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -36,7 +36,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -49,10 +49,10 @@ public class TupleTests
         var args = new[] { "--dsc", "1.5helloNoDivider" };
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        errors.Should().NotBeNull();
     }
 
     [Test]
@@ -67,7 +67,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -85,7 +85,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -98,10 +98,10 @@ public class TupleTests
         var args = new[] { "--bib", "true:1:256" };
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        errors.Should().NotBeNull();
     }
 
     [Test]
@@ -111,10 +111,10 @@ public class TupleTests
         var args = new[] { "--bib", "yes:1:1" };
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        errors.Should().NotBeNull();
     }
 
     [Test]
@@ -129,7 +129,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -147,7 +147,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -160,10 +160,10 @@ public class TupleTests
         var args = new[] { "--idcb", "7;3.14;AB;true" };
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        errors.Should().NotBeNull();
     }
 
     [Test]
@@ -178,7 +178,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -196,7 +196,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -209,10 +209,10 @@ public class TupleTests
         var args = new[] { "--mix", "hi|2|9.9|z" };
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        errors.Should().NotBeNull();
     }
 
     [Test]
@@ -228,7 +228,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -243,7 +243,7 @@ public class TupleTests
         var expected = new TupleExample();
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -263,7 +263,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -281,7 +281,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -294,10 +294,10 @@ public class TupleTests
         var args = new[] { "--i3", "1,2" };
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        errors.Should().NotBeNull();
     }
 
     [Test]
@@ -312,7 +312,7 @@ public class TupleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<TupleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -325,9 +325,9 @@ public class TupleTests
         var args = new[] { "--alt", "a-1b" };
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        errors.Should().NotBeNull();
     }
 }

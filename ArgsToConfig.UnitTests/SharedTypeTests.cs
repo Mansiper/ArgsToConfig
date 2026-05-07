@@ -19,7 +19,7 @@ public class SharedTypeTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<SharedEnumExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<SharedEnumExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -38,7 +38,7 @@ public class SharedTypeTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<SharedEnumExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<SharedEnumExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -57,7 +57,7 @@ public class SharedTypeTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<SharedClassExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<SharedClassExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -76,7 +76,7 @@ public class SharedTypeTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<SharedClassExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<SharedClassExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);

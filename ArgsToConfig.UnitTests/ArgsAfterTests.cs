@@ -21,7 +21,7 @@ public class ArgsAfterTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsAfterExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsAfterExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -41,7 +41,7 @@ public class ArgsAfterTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsAfterExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsAfterExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -61,7 +61,7 @@ public class ArgsAfterTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsAfterExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsAfterExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -80,7 +80,7 @@ public class ArgsAfterTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsAfterExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsAfterExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -100,7 +100,7 @@ public class ArgsAfterTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsAfterExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsAfterExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -120,7 +120,7 @@ public class ArgsAfterTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsAfterMultipleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsAfterMultipleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -140,7 +140,7 @@ public class ArgsAfterTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<ArgsAfterMultipleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ArgsAfterMultipleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);

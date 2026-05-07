@@ -24,10 +24,10 @@ public class CommonTypesTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<CommonTypesExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<CommonTypesExample>(args);
 
         // Assert
-        result.Date.Should().Be(new DateTime(2024, 6, 15, 14, 30, 0));
+        result!.Date.Should().Be(new DateTime(2024, 6, 15, 14, 30, 0));
         result.OnlyDate.Should().Be(new DateOnly(2024, 6, 15));
         result.Time.Should().Be(new TimeOnly(14, 30, 0));
         result.Span.Should().Be(new TimeSpan(1, 30, 0));

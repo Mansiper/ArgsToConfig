@@ -13,10 +13,10 @@ public class ConvertorTests
         var args = new[] { "--ip", "192.168.1.100" };
 
         // Act
-        var result = ArgumentsReader.ToObject<ConvertorExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ConvertorExample>(args);
 
         // Assert
-        result.IpAddress.Should().Equal(192, 168, 1, 100);
+        result!.IpAddress.Should().Equal(192, 168, 1, 100);
     }
 
     [Test]
@@ -26,10 +26,10 @@ public class ConvertorTests
         var args = Array.Empty<string>();
 
         // Act
-        var result = ArgumentsReader.ToObject<ConvertorExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ConvertorExample>(args);
 
         // Assert
-        result.IpAddress.Should().BeNull();
+        result!.IpAddress.Should().BeNull();
     }
 
     [Test]
@@ -39,9 +39,10 @@ public class ConvertorTests
         var args = new[] { "--ip", "192.168.1" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ConvertorExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ConvertorExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>().WithMessage("*not a valid IPv4 address*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 }

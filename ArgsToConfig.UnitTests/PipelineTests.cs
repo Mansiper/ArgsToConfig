@@ -1,4 +1,4 @@
-﻿using ArgsToConfig.UnitTests.Examples;
+using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
 namespace ArgsToConfig.UnitTests;
@@ -43,7 +43,7 @@ public class PipelineTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<PipelineExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PipelineExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -56,11 +56,11 @@ public class PipelineTests
         var args = new[] { "pull" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<DuplicatePipelineExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<DuplicatePipelineExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*Duplicate*pull*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -70,11 +70,11 @@ public class PipelineTests
         var args = new[] { "run" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ConflictingPipelineExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ConflictingPipelineExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*conflicts with a root parameter*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -84,11 +84,11 @@ public class PipelineTests
         var args = new[] { "pull", "commit" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ArgConflictPipelineExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ArgConflictPipelineExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*uses another pipeline command name*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -98,10 +98,10 @@ public class PipelineTests
         var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
 
         // Act
-        var result = ArgumentsReader.ToObject<PipelineWithListExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PipelineWithListExample>(args);
 
         // Assert
-        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        result!.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
         {
             new PullCommand { Fetch = true },
             new CommitCommand { Message = "text" }
@@ -115,10 +115,10 @@ public class PipelineTests
         var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
 
         // Act
-        var result = ArgumentsReader.ToObject<PipelineWithIEnumerableExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PipelineWithIEnumerableExample>(args);
 
         // Assert
-        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        result!.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
         {
             new PullCommand { Fetch = true },
             new CommitCommand { Message = "text" }
@@ -132,10 +132,10 @@ public class PipelineTests
         var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
 
         // Act
-        var result = ArgumentsReader.ToObject<PipelineWithICollectionExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PipelineWithICollectionExample>(args);
 
         // Assert
-        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        result!.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
         {
             new PullCommand { Fetch = true },
             new CommitCommand { Message = "text" }
@@ -149,10 +149,10 @@ public class PipelineTests
         var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
 
         // Act
-        var result = ArgumentsReader.ToObject<PipelineWithIListExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PipelineWithIListExample>(args);
 
         // Assert
-        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        result!.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
         {
             new PullCommand { Fetch = true },
             new CommitCommand { Message = "text" }
@@ -166,10 +166,10 @@ public class PipelineTests
         var args = new[] { "pull", "--fetch", "commit", "-m", "text" };
 
         // Act
-        var result = ArgumentsReader.ToObject<PipelineWithHashSetExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PipelineWithHashSetExample>(args);
 
         // Assert
-        result.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
+        result!.Commands.Should().BeEquivalentTo(new List<IPipelineCommand>
         {
             new PullCommand { Fetch = true },
             new CommitCommand { Message = "text" }

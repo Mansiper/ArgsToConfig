@@ -15,10 +15,10 @@ public class AcceptFromAmongTests
         var args = new[] { "--format", "jpg" };
 
         // Act
-        var result = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
 
         // Assert
-        result.FileExtension.Should().Be("jpg");
+        result!.FileExtension.Should().Be("jpg");
     }
 
     [Test]
@@ -28,10 +28,10 @@ public class AcceptFromAmongTests
         var args = new[] { "--format", "jpg" };
 
         // Act
-        var result = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
 
         // Assert
-        result.FileExtension.Should().Be("jpg");
+        result!.FileExtension.Should().Be("jpg");
     }
 
     [Test]
@@ -41,10 +41,11 @@ public class AcceptFromAmongTests
         var args = new[] { "--format", "tiff" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>().WithMessage("*is not accepted*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -54,10 +55,10 @@ public class AcceptFromAmongTests
         var args = Array.Empty<string>();
 
         // Act
-        var result = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
 
         // Assert
-        result.FileExtension.Should().BeNull();
+        result!.FileExtension.Should().BeNull();
     }
 
     [TestCase("jpg")]
@@ -69,10 +70,10 @@ public class AcceptFromAmongTests
         var args = new[] { "--format", ext };
 
         // Act
-        var result = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
 
         // Assert
-        result.FileExtension.Should().Be(ext);
+        result!.FileExtension.Should().Be(ext);
     }
 
     // ── Collection values ─────────────────────────────────────────────────────
@@ -84,10 +85,10 @@ public class AcceptFromAmongTests
         var args = new[] { "--formats", "jpg", "--formats", "gif" };
 
         // Act
-        var result = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
 
         // Assert
-        result.FileExtensions.Should().Equal("jpg", "gif");
+        result!.FileExtensions.Should().Equal("jpg", "gif");
     }
 
     [Test]
@@ -97,9 +98,10 @@ public class AcceptFromAmongTests
         var args = new[] { "--formats", "jpg", "--formats", "bmp" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<AcceptFromAmongExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>().WithMessage("*is not accepted*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 }

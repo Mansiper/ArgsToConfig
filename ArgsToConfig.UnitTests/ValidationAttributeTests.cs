@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
@@ -22,10 +21,10 @@ public class ValidationAttributeTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<ValidationExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<ValidationExample>(args);
 
         // Assert
-        result.Name.Should().Be("Alice");
+        result!.Name.Should().Be("Alice");
         result.Email.Should().Be("alice@example.com");
         result.Phone.Should().Be("+1-800-555-0100");
         result.Count.Should().Be(42);
@@ -40,10 +39,11 @@ public class ValidationAttributeTests
         var args = new[] { "--count", "5" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ValidationExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ValidationExample>(args);
 
         // Assert
-        act.Should().Throw<ValidationException>();
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -53,10 +53,11 @@ public class ValidationAttributeTests
         var args = new[] { "--name", "Alice", "--email", "not-an-email" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ValidationExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ValidationExample>(args);
 
         // Assert
-        act.Should().Throw<ValidationException>();
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -66,10 +67,11 @@ public class ValidationAttributeTests
         var args = new[] { "--name", "Alice", "--phone", "notaphone!!!" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ValidationExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ValidationExample>(args);
 
         // Assert
-        act.Should().Throw<ValidationException>();
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -79,10 +81,11 @@ public class ValidationAttributeTests
         var args = new[] { "--name", "Alice", "--count", "200" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ValidationExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ValidationExample>(args);
 
         // Assert
-        act.Should().Throw<ValidationException>();
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -92,10 +95,11 @@ public class ValidationAttributeTests
         var args = new[] { "--name", "Alice", "--tag", "this-tag-is-way-too-long" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ValidationExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ValidationExample>(args);
 
         // Assert
-        act.Should().Throw<ValidationException>();
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -105,10 +109,11 @@ public class ValidationAttributeTests
         var args = new[] { "--name", "Alice", "--code", "invalid123" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ValidationExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ValidationExample>(args);
 
         // Assert
-        act.Should().Throw<ValidationException>();
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -118,10 +123,11 @@ public class ValidationAttributeTests
         var args = new[] { "--name", "Alice", "--email", "bad", "--count", "999" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<ValidationExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<ValidationExample>(args);
 
         // Assert
-        act.Should().Throw<ValidationException>()
-            .WithMessage("*");
+        errors.Should().NotBeNull();
+        errors.Length.Should().BeGreaterThan(1);
+        position.Should().BeNull();
     }
 }

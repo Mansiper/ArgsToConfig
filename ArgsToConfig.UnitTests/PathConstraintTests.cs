@@ -32,10 +32,10 @@ public class PathConstraintTests
         var args = new[] { "--file", existingFile };
 
         // Act
-        var result = ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        result.FilePath.Should().Be(existingFile);
+        result!.FilePath.Should().Be(existingFile);
     }
 
     [Test]
@@ -45,10 +45,11 @@ public class PathConstraintTests
         var args = new[] { "--file", @"C:\this\does\not\exist.txt" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>().WithMessage("*does not exist*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -58,10 +59,10 @@ public class PathConstraintTests
         var args = Array.Empty<string>();
 
         // Act
-        var result = ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        result.FilePath.Should().BeNull();
+        result!.FilePath.Should().BeNull();
     }
 
     // ── ArgsExistingOnlyDirectory ─────────────────────────────────────────────
@@ -73,10 +74,10 @@ public class PathConstraintTests
         var args = new[] { "--dir", existingDir };
 
         // Act
-        var result = ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        result.DirPath.Should().Be(existingDir);
+        result!.DirPath.Should().Be(existingDir);
     }
 
     [Test]
@@ -86,10 +87,11 @@ public class PathConstraintTests
         var args = new[] { "--dir", @"C:\this\does\not\exist" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>().WithMessage("*does not exist*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -99,10 +101,10 @@ public class PathConstraintTests
         var args = Array.Empty<string>();
 
         // Act
-        var result = ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        result.DirPath.Should().BeNull();
+        result!.DirPath.Should().BeNull();
     }
 
     // ── ArgsLegalFileNamesOnly ────────────────────────────────────────────────
@@ -114,10 +116,10 @@ public class PathConstraintTests
         var args = new[] { "--name", "my-report_2024.txt" };
 
         // Act
-        var result = ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        result.FileName.Should().Be("my-report_2024.txt");
+        result!.FileName.Should().Be("my-report_2024.txt");
     }
 
     [Test]
@@ -127,10 +129,11 @@ public class PathConstraintTests
         var args = new[] { "--name", "bad|name?.txt" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>().WithMessage("*illegal file name characters*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -140,9 +143,9 @@ public class PathConstraintTests
         var args = Array.Empty<string>();
 
         // Act
-        var result = ArgumentsReader.ToObject<PathConstraintExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PathConstraintExample>(args);
 
         // Assert
-        result.FileName.Should().BeNull();
+        result!.FileName.Should().BeNull();
     }
 }

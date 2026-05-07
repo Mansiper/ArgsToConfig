@@ -1,4 +1,4 @@
-﻿using ArgsToConfig.UnitTests.Examples;
+using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
 namespace ArgsToConfig.UnitTests;
@@ -21,7 +21,7 @@ public class SubclassTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<SubclassExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<SubclassExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -34,9 +34,10 @@ public class SubclassTests
          var args = new[] { "connect", "-u", "user", "-p", "pass", "run" };     // conflicts between root and subclass properties but shouldnt conflict between two subclasses
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<SubclassWithRunExample>(args);
-         
+        var (_, errors, position) = ArgumentsReader.ToObject<SubclassWithRunExample>(args);
+
          // Assert
-         act.Should().Throw<Exception>();
+         errors.Should().NotBeNull();
+         position.Should().BeNull();
      }
 }

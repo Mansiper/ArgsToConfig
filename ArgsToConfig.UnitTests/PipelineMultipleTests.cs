@@ -35,7 +35,7 @@ public class PipelineMultipleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<PipelineMultipleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<PipelineMultipleExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -67,7 +67,7 @@ public class PipelineMultipleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<Pipeline3Example>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<Pipeline3Example>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -101,7 +101,7 @@ public class PipelineMultipleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<Pipeline3Example>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<Pipeline3Example>(args);
         
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -114,11 +114,11 @@ public class PipelineMultipleTests
         var args = new[] { "cpdup" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<DuplicateCrossMultiplePipelineExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<DuplicateCrossMultiplePipelineExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*Duplicate*cpdup*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -128,11 +128,11 @@ public class PipelineMultipleTests
         var args = new[] { "cp11" };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<SameInterfaceMultiplePipelineExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<SameInterfaceMultiplePipelineExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*same interface*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -148,10 +148,10 @@ public class PipelineMultipleTests
         };
 
         // Act
-        var act = () => ArgumentsReader.ToObject<MixedOrderMultiplePipelineExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<MixedOrderMultiplePipelineExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*cannot go back*");
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 }

@@ -1,4 +1,4 @@
-﻿using ArgsToConfig.UnitTests.Examples;
+using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
 namespace ArgsToConfig.UnitTests;
@@ -21,7 +21,7 @@ public class UnnamedTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<UnnamedExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<UnnamedExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -43,7 +43,7 @@ public class UnnamedTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<UnnamedExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<UnnamedExample>(args);
 
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -54,12 +54,13 @@ public class UnnamedTests
     {
         // Arrange
         var args = new[] { "old", "new" };
-     
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<UnnamedSamePosExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<UnnamedSamePosExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: check message
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -67,12 +68,13 @@ public class UnnamedTests
     {
         // Arrange
         var args = new[] { "old", "new" };
-     
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<UnnamedNoZeroPosExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<UnnamedNoZeroPosExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: check message
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 
     [Test]
@@ -82,9 +84,10 @@ public class UnnamedTests
         var args = new[] { "old", "new" };
 
         // Act
-        Action act = () => ArgumentsReader.ToObject<UnnamedMissedPosExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<UnnamedMissedPosExample>(args);
 
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: check message
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 }

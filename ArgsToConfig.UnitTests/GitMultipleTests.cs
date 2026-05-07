@@ -1,4 +1,4 @@
-﻿using ArgsToConfig.UnitTests.Examples;
+using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
 namespace ArgsToConfig.UnitTests;
@@ -25,7 +25,7 @@ public class GitMultipleTests
         };
 
         // Act
-        var result = ArgumentsReader.ToObject<GitMultipleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<GitMultipleExample>(args);
         
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -44,7 +44,7 @@ public class GitMultipleTests
         };
      
         // Act
-        var result = ArgumentsReader.ToObject<GitMultipleExample>(args);
+        var (result, _, _) = ArgumentsReader.ToObject<GitMultipleExample>(args);
         
         // Assert
         result.Should().BeEquivalentTo(expected);
@@ -55,11 +55,12 @@ public class GitMultipleTests
     {
         // Arrange
         var args = new[] { "push" };
-     
+
         // Act
-        Action act = () => ArgumentsReader.ToObject<GitMultipleExample>(args);
-        
+        var (_, errors, position) = ArgumentsReader.ToObject<GitMultipleExample>(args);
+
         // Assert
-        act.Should().Throw<ArgumentException>();    //todo: add message check
+        errors.Should().NotBeNull();
+        position.Should().BeNull();
     }
 }
