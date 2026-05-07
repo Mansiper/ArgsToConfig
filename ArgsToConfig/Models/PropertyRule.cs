@@ -54,4 +54,7 @@ internal sealed class PropertyRule
 
     // ArgsPositional (explicit positional index)
     public int PositionalIndex { get; init; } = -1;
+
+    // ArgsConvertor (custom convertor type)
+    public Type? ConvertorType { get; init; }
 }

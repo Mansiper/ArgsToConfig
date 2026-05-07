@@ -9,6 +9,8 @@ public static class ArgumentsReader
 {
     public static T ToObject<T>(params string[] args) where T : new()
     {
+        CheckHelpVersion(args);
+
         var obj = new T();
         var rules = BuildRules(typeof(T));
         ApplyRules(obj, rules, args);
@@ -16,6 +18,31 @@ public static class ArgumentsReader
         if (!Validator.TryValidateObject(obj, new ValidationContext(obj), validationResults, validateAllProperties: true))
             throw new ValidationException(string.Join(Environment.NewLine, validationResults.Select(r => r.ErrorMessage)));
         return obj;
+    }
+
+    /// <summary>
+    /// Optional callback for handling help requests.
+    /// Receives the subcommand name if specified (e.g. "myapp --help subcmd"), or null if no subcommand was specified (e.g. "myapp --help").
+    /// </summary>
+    public static Func<string?, Task>? OnHelp { get; set; }
+
+    /// <summary>
+    /// Optional callback for handling version requests.
+    /// </summary>
+    public static Func<Task>? OnVersion { get; set; }
+
+    private static void CheckHelpVersion(string[] args)
+    {
+        if (args.Length is 1 or 2 && (args[0] == "--help" || args[0] == "-h") && OnHelp is not null)
+        {
+            OnHelp(args.Length == 1 ? null : args[1]).Wait();
+            Environment.Exit(0);
+        }
+        if (args.Length == 1 && (args[0] == "--version" || args[0] == "-v") && OnVersion is not null)
+        {
+            OnVersion().Wait();
+            Environment.Exit(0);
+        }
     }
 
     private static List<PropertyRule> BuildRules(Type type)
@@ -37,6 +64,7 @@ public static class ArgumentsReader
             var isPathspec = prop.GetCustomAttribute<ArgsPathspecAttribute>() is not null;
             var isObject = prop.GetCustomAttribute<ArgsObjectAttribute>();
             var positional = prop.GetCustomAttribute<ArgsPositionalAttribute>();
+            var convertor = prop.GetCustomAttribute<ArgsConvertorAttribute>();
 
             // ArgsObject – sub-object with root name on the attribute
             if (isObject is not null)
@@ -120,7 +148,8 @@ public static class ArgumentsReader
                 TupleDividers = argsTuple?.GetDividers,
                 TuplePartsDividers = argsTuple?.PartsDividers ?? false,
                 IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
-                    && !isEnum && after is null && !isPathspec && positional is null
+                    && !isEnum && after is null && !isPathspec && positional is null,
+                ConvertorType = convertor?.GetConvertorType
             });
         }
 
@@ -541,6 +570,12 @@ public static class ArgumentsReader
                     if (!enumMatched)
                         throw new ArgumentException($"Invalid value '{value}' for argument '{key}'.");
                 }
+            }
+            else if (value is not null && rule.ConvertorType is not null)
+            {
+                var convertorInstance = (IArgsConvertor)Activator.CreateInstance(rule.ConvertorType)!;
+                var converted = convertorInstance.Convert(value);
+                SetTracked(rule.Property, converted, i);
             }
             else if (value is not null && IsCollectionProperty(rule.Property.PropertyType, out var elementType))
             {
