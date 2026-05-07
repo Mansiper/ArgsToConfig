@@ -1,0 +1,163 @@
+using ArgsToConfig.Attributes;
+using System.Reflection;
+using System.Text;
+
+namespace ArgsToConfig;
+
+/// <summary>
+/// Generates and caches human-readable help text for a config type based on its attribute descriptions.
+/// </summary>
+public static class HelpGenerator
+{
+    private static readonly Dictionary<Type, string> Cache = new();
+
+    /// <summary>
+    /// Returns the help text for the given config type, generating and caching it on first call.
+    /// </summary>
+    public static string GetHelp<T>() => GetHelp(typeof(T));
+
+    /// <summary>
+    /// Returns the help text for the given config type, generating and caching it on first call.
+    /// </summary>
+    public static string GetHelp(Type type)
+    {
+        if (Cache.TryGetValue(type, out var cached))
+            return cached;
+
+        var help = Generate(type);
+        Cache[type] = help;
+        return help;
+    }
+
+    /// <summary>
+    /// Clears the help text cache. Useful in tests or after dynamic reconfiguration.
+    /// </summary>
+    public static void ClearCache() => Cache.Clear();
+
+    private static string Generate(Type type)
+    {
+        var sb = new StringBuilder();
+
+        // Class-level OneOf descriptions
+        var oneOfs = type.GetCustomAttributes<ArgsOneOfAttribute>();
+        foreach (var oneOf in oneOfs)
+        {
+            if (oneOf.Description is not null)
+                sb.AppendLine($"Note: {oneOf.Description}");
+        }
+
+        var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+        foreach (var prop in props)
+        {
+            AppendPropertyHelp(sb, prop);
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static void AppendPropertyHelp(StringBuilder sb, PropertyInfo prop)
+    {
+        var hasParam = prop.GetCustomAttribute<ArgsHasParameterAttribute>();
+        var valueFor = prop.GetCustomAttribute<ArgsValueForAttribute>();
+        var valueForBool = prop.GetCustomAttribute<ArgsValueForBoolAttribute>();
+        var argsEnum = prop.GetCustomAttribute<ArgsEnumAttribute>();
+        var argsObject = prop.GetCustomAttribute<ArgsObjectAttribute>();
+        var argsPipeline = prop.GetCustomAttribute<ArgsPipelineAttribute>();
+        var argsPathspec = prop.GetCustomAttribute<ArgsPathspecAttribute>();
+        var argsPositional = prop.GetCustomAttribute<ArgsPositionalAttribute>();
+        var argsIfSet = prop.GetCustomAttribute<ArgsIfSetAttribute>();
+
+        string? description = hasParam?.Description
+            ?? valueFor?.Description
+            ?? valueForBool?.Description
+            ?? argsEnum?.Description
+            ?? argsObject?.Description
+            ?? argsPipeline?.Description
+            ?? argsPathspec?.Description
+            ?? argsPositional?.Description;
+
+        if (description is null)
+            return;
+
+        var names = BuildNames(prop, hasParam, valueFor, valueForBool, argsEnum, argsObject, argsPathspec, argsPositional);
+
+        sb.Append($"  {names}");
+
+        // Append value placeholder for value-accepting args
+        if (valueFor is not null)
+        {
+            var placeholder = $"<{prop.Name.ToLower()}>";
+            if (valueFor.GetOptional)
+                sb.Append($" [{placeholder}]");
+            else
+                sb.Append($" {placeholder}");
+        }
+        else if (argsEnum is not null && argsEnum.GetNames is not null)
+        {
+            var enumType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+            if (enumType.IsEnum)
+            {
+                var values = string.Join("|", Enum.GetNames(enumType).Select(n => n.ToLower()));
+                sb.Append($" <{values}>");
+            }
+        }
+
+        sb.AppendLine($"\t{description}");
+
+        // If this is an enum property with member descriptions, list them
+        if (argsEnum is not null)
+        {
+            var enumType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+            if (enumType.IsEnum)
+            {
+                var members = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
+                foreach (var member in members)
+                {
+                    var mHas = member.GetCustomAttribute<ArgsHasParameterAttribute>();
+                    var mVal = member.GetCustomAttribute<ArgsValueAttribute>();
+                    var memberDesc = mHas?.Description ?? mVal?.Description;
+                    if (memberDesc is null) continue;
+                    var memberName = mHas?.GetNames is { } n ? string.Join(", ", n) : (mVal?.GetValue ?? member.Name.ToLower());
+                    sb.AppendLine($"      {memberName}\t{memberDesc}");
+                }
+            }
+        }
+
+        // Inline enum (ArgsHasParameter on enum members treated as flags)
+        if (hasParam is null && valueFor is null && valueForBool is null && argsEnum is null)
+        {
+            // nothing extra
+        }
+
+        if (argsIfSet is not null && argsIfSet.Description is not null)
+            sb.AppendLine($"      (requires: {string.Join(", ", argsIfSet.GetFields)})\t{argsIfSet.Description}");
+    }
+
+    private static string BuildNames(
+        PropertyInfo prop,
+        ArgsHasParameterAttribute? hasParam,
+        ArgsValueForAttribute? valueFor,
+        ArgsValueForBoolAttribute? valueForBool,
+        ArgsEnumAttribute? argsEnum,
+        ArgsObjectAttribute? argsObject,
+        ArgsPathspecAttribute? argsPathspec,
+        ArgsPositionalAttribute? argsPositional)
+    {
+        if (hasParam is not null)
+            return string.Join(", ", hasParam.GetNames);
+        if (valueFor is not null)
+            return string.Join(", ", valueFor.GetNames);
+        if (valueForBool is not null)
+            return $"{string.Join(", ", valueForBool.GetTrueNames)} / {string.Join(", ", valueForBool.GetFalseNames)}";
+        if (argsEnum?.GetNames is not null)
+            return string.Join(", ", argsEnum.GetNames);
+        if (argsObject is not null)
+            return argsObject.GetName;
+        if (argsPathspec is not null)
+            return "[--] <pathspec>...";
+        if (argsPositional is not null)
+            return $"<{prop.Name.ToLower()}> (positional {argsPositional.GetPosition})";
+        return $"<{prop.Name.ToLower()}>";
+    }
+}

@@ -27,6 +27,17 @@ public static class ArgumentsReader
     }
 
     /// <summary>
+    /// Returns a synopsis string describing the command-line interface of <typeparamref name="T"/>,
+    /// in the style of <c>git commit [-a | --interactive] [-s] [-v] [--flag &lt;value&gt;]</c>.
+    /// </summary>
+    public static string ToArgsString<T>() where T : new()
+    {
+        var tokens = new List<string>();
+        InnerToArgs.BuildArgsString(typeof(T), tokens);
+        return string.Join(" ", tokens);
+    }
+
+    /// <summary>
     /// Optional callback for handling help requests.
     /// Receives the subcommand name if specified (e.g. "myapp --help subcmd"), or null if no subcommand was specified (e.g. "myapp --help").
     /// </summary>
