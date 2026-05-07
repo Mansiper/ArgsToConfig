@@ -65,6 +65,10 @@ public static class ArgumentsReader
             var isObject = prop.GetCustomAttribute<ArgsObjectAttribute>();
             var positional = prop.GetCustomAttribute<ArgsPositionalAttribute>();
             var convertor = prop.GetCustomAttribute<ArgsConvertorAttribute>();
+            var isExistingOnlyFile = prop.GetCustomAttribute<ArgsExistingOnlyFileAttribute>() is not null;
+            var isExistingOnlyDirectory = prop.GetCustomAttribute<ArgsExistingOnlyDirectoryAttribute>() is not null;
+            var isLegalFileNamesOnly = prop.GetCustomAttribute<ArgsLegalFileNamesOnlyAttribute>() is not null;
+            var acceptFromAmong = prop.GetCustomAttribute<ArgsAcceptFromAmongAttribute>();
 
             // ArgsObject – sub-object with root name on the attribute
             if (isObject is not null)
@@ -149,7 +153,11 @@ public static class ArgumentsReader
                 TuplePartsDividers = argsTuple?.PartsDividers ?? false,
                 IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
                     && !isEnum && after is null && !isPathspec && positional is null,
-                ConvertorType = convertor?.GetConvertorType
+                ConvertorType = convertor?.GetConvertorType,
+                IsExistingOnlyFile = isExistingOnlyFile,
+                IsExistingOnlyDirectory = isExistingOnlyDirectory,
+                IsLegalFileNamesOnly = isLegalFileNamesOnly,
+                AcceptFromAmong = acceptFromAmong?.GetValues
             });
         }
 
@@ -580,7 +588,8 @@ public static class ArgumentsReader
             else if (value is not null && IsCollectionProperty(rule.Property.PropertyType, out var elementType))
             {
                 // Multi-value collection: string[], T[], List<T>, HashSet<T>, etc.
-                object converted = rule.TupleDividers is not null && elementType.IsGenericType
+                if (elementType == typeof(string)) ValidatePathConstraints(rule, value);
+                var converted = rule.TupleDividers is not null && elementType.IsGenericType
                     ? ConvertTupleValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers)
                     : ConvertValue(value, elementType);
                 if (!pendingCollections.TryGetValue(rule.Property.Name, out var pending))
@@ -592,6 +601,7 @@ public static class ArgumentsReader
             }
             else if (value is not null)
             {
+                if (propType == typeof(string)) ValidatePathConstraints(rule, value);
                 var converted = rule.TupleDividers is not null && propType.IsGenericType
                     ? ConvertTupleValue(value, propType, rule.TupleDividers, rule.TuplePartsDividers)
                     : ConvertValue(value, propType);
@@ -670,6 +680,7 @@ public static class ArgumentsReader
                         var preRule = implicitAfterFields[pi]!;
                         var (pidx, pval) = availablePositionals[pi];
                         var prePropType = Nullable.GetUnderlyingType(preRule.Property.PropertyType) ?? preRule.Property.PropertyType;
+                        if (prePropType == typeof(string)) ValidatePathConstraints(preRule, pval);
                         SetTracked(preRule.Property, ConvertValue(pval, prePropType), pidx);
                     }
                 }
@@ -699,6 +710,7 @@ public static class ArgumentsReader
                                 $"Field '{fieldName}' cannot be changed after '{rule.Property.Name}' has been assigned ([ArgsAfter]).");
 
                     var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
+                    if (propType == typeof(string)) ValidatePathConstraints(rule, candidate.value);
                     SetTracked(rule.Property, ConvertValue(candidate.value, propType), candidate.index);
                 }
             }
@@ -735,6 +747,7 @@ public static class ArgumentsReader
                 var epRule = explicitPositionalRules[pi];
                 var (pidx, pval) = unconsumedPositionals[pi];
                 var propType = Nullable.GetUnderlyingType(epRule.Property.PropertyType) ?? epRule.Property.PropertyType;
+                if (propType == typeof(string)) ValidatePathConstraints(epRule, pval);
                 SetTracked(epRule.Property, ConvertValue(pval, propType), pidx);
             }
         }
@@ -747,6 +760,7 @@ public static class ArgumentsReader
             var ipRule = implicitRules[pi];
             var (pidx, pval) = remainingPositionals[pi];
             var propType = Nullable.GetUnderlyingType(ipRule.Property.PropertyType) ?? ipRule.Property.PropertyType;
+            if (propType == typeof(string)) ValidatePathConstraints(ipRule, pval);
             SetTracked(ipRule.Property, ConvertValue(pval, propType), pidx);
         }
 
@@ -998,6 +1012,31 @@ public static class ArgumentsReader
         }
 
         return FillCollection(underlying, typeArg, items);
+    }
+
+    private static void ValidatePathConstraints(PropertyRule rule, string value)
+    {
+        if (rule.IsExistingOnlyFile)
+        {
+            if (!File.Exists(value))
+                throw new ArgumentException($"File '{value}' does not exist (property '{rule.Property.Name}').");
+        }
+        if (rule.IsExistingOnlyDirectory)
+        {
+            if (!Directory.Exists(value))
+                throw new ArgumentException($"Directory '{value}' does not exist (property '{rule.Property.Name}').");
+        }
+        if (rule.IsLegalFileNamesOnly)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            if (value.IndexOfAny(invalidChars) >= 0)
+                throw new ArgumentException($"Value '{value}' contains illegal file name characters (property '{rule.Property.Name}').");
+        }
+        if (rule.AcceptFromAmong is not null)
+        {
+            if (!rule.AcceptFromAmong.Contains(value, StringComparer.OrdinalIgnoreCase))
+                throw new ArgumentException($"Value '{value}' is not accepted for property '{rule.Property.Name}'. Accepted values: {string.Join(", ", rule.AcceptFromAmong)}.");
+        }
     }
 
     private static object FillCollection(Type collectionType, Type elementType, List<object> items)

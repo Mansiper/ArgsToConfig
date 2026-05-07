@@ -57,4 +57,16 @@ internal sealed class PropertyRule
 
     // ArgsConvertor (custom convertor type)
     public Type? ConvertorType { get; init; }
+
+    // ArgsExistingOnlyFile
+    public bool IsExistingOnlyFile { get; init; }
+
+    // ArgsExistingOnlyDirectory
+    public bool IsExistingOnlyDirectory { get; init; }
+
+    // ArgsLegalFileNamesOnly
+    public bool IsLegalFileNamesOnly { get; init; }
+
+    // ArgsAcceptFromAmong
+    public string[]? AcceptFromAmong { get; init; }
 }
