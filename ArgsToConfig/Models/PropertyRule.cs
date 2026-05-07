@@ -25,9 +25,6 @@ internal sealed class PropertyRule
     // ArgsAfter
     public string[]? AfterFields { get; init; }
 
-    // ArgsOneOf
-    public string[]? OneOfFields { get; init; }
-
     // ArgsIfSet
     public string[]? IfSetFields { get; init; }
 

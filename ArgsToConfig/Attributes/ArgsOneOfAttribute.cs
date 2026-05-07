@@ -1,11 +1,10 @@
 ﻿namespace ArgsToConfig.Attributes;
 
 /// <summary>
-/// Indicates that only one of the specified fields and the field or property it is applied to can have a value at a time.
-/// It is recommended to apply this attribute to the last of the listed fields.
+/// Indicates that only one of the specified fields can have a value at a time.
 /// </summary>
 /// <remarks>All of these fields must be nullable.</remarks>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
 public class ArgsOneOfAttribute : Attribute
 {
     private readonly string[] fields;

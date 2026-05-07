@@ -59,7 +59,6 @@ public static class ArgumentsReader
             var argsTuple = prop.GetCustomAttribute<ArgsTupleAttribute>();
             var isEnum = argsEnum is not null;
             var after = prop.GetCustomAttribute<ArgsAfterAttribute>();
-            var oneOf = prop.GetCustomAttribute<ArgsOneOfAttribute>();
             var ifSet = prop.GetCustomAttribute<ArgsIfSetAttribute>();
             var isPathspec = prop.GetCustomAttribute<ArgsPathspecAttribute>() is not null;
             var isObject = prop.GetCustomAttribute<ArgsObjectAttribute>();
@@ -144,7 +143,6 @@ public static class ArgumentsReader
                 ValueForBoolFalseNames = valueForBool?.GetFalseNames,
                 IsEnum = isEnum,
                 AfterFields = after?.GetFields,
-                OneOfFields = oneOf?.GetFields,
                 IfSetFields = ifSet?.GetFields,
                 IsPathspec = isPathspec,
                 EnumMemberRules = enumMemberRules,
@@ -765,18 +763,20 @@ public static class ArgumentsReader
         }
 
         // ── Remaining validation ──────────────────────────────────────────────
+
+        // ArgsOneOf class-level validation
+        var oneOfAttributes = obj.GetType().GetCustomAttributes<ArgsOneOfAttribute>();
+        foreach (var oneOfAttr in oneOfAttributes)
+        {
+            var setInGroup = oneOfAttr.GetFields.Where(setFieldNames.Contains).ToList();
+            if (setInGroup.Count > 1)
+                throw new InvalidOperationException(
+                    $"Properties '{string.Join("', '", oneOfAttr.GetFields)}' are mutually exclusive ([ArgsOneOf]).");
+        }
+
         foreach (var rule in rules)
         {
             var name = rule.Property.Name;
-
-            // ArgsOneOf validation
-            if (rule.OneOfFields is not null && setFieldNames.Contains(name))
-            {
-                var alsoSet = rule.OneOfFields.Where(setFieldNames.Contains).ToList();
-                if (alsoSet.Count > 0)
-                    throw new InvalidOperationException(
-                        $"Property '{name}' and '{string.Join("', '", alsoSet)}' are mutually exclusive ([ArgsOneOf]).");
-            }
 
             // ArgsIfSet validation
             if (rule.IfSetFields is not null && setFieldNames.Contains(name))

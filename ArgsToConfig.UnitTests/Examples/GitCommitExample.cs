@@ -10,6 +10,7 @@ namespace ArgsToConfig.UnitTests.Examples;
    [-i | -o] [--pathspec-from-file=<file> [--pathspec-file-nul]]
    [(--trailer <token>[(=|:)<value>])…​] [-S[<keyid>]]
    [--] [<pathspec>…​]*/
+[ArgsOneOf(nameof(File), nameof(Message))]
 internal class GitCommitExample
 {
     [ArgsHasParameter("commit", 0)]
@@ -41,7 +42,6 @@ internal class GitCommitExample
     public string? File { get; set; }
 
     [ArgsValueFor("-m|--message", true)]
-    [ArgsOneOf(nameof(File))]
     public string? Message { get; set; }
 
     [ArgsHasParameter("--reset-author")]
