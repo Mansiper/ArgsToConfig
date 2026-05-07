@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using ArgsToConfig.Attributes;
 using ArgsToConfig.Models;
 
@@ -11,6 +12,9 @@ public static class ArgumentsReader
         var obj = new T();
         var rules = BuildRules(typeof(T));
         ApplyRules(obj, rules, args);
+        var validationResults = new List<ValidationResult>();
+        if (!Validator.TryValidateObject(obj, new ValidationContext(obj), validationResults, validateAllProperties: true))
+            throw new ValidationException(string.Join(Environment.NewLine, validationResults.Select(r => r.ErrorMessage)));
         return obj;
     }
 
@@ -402,6 +406,8 @@ public static class ArgumentsReader
         var endOfOptionsIndex = Array.IndexOf(args, "--");
         var consumedAt = new Dictionary<string, int>();
         var positionalArgs = new List<(int index, string value)>();
+        // Accumulates items for multi-value collection properties (string[], List<T>, T[], etc.)
+        var pendingCollections = new Dictionary<string, (PropertyRule Rule, List<object> Items, int LastIndex)>();
 
         // Build a flat lookup: arg-name → (rule, forced bool for ValueForBool, enum member for enum flags)
         var argIndex = new Dictionary<string, (PropertyRule Rule, bool? BoolValue, EnumMemberRule? Member)>(StringComparer.Ordinal);
@@ -536,16 +542,18 @@ public static class ArgumentsReader
                         throw new ArgumentException($"Invalid value '{value}' for argument '{key}'.");
                 }
             }
-            else if (propType == typeof(string[]))
+            else if (value is not null && IsCollectionProperty(rule.Property.PropertyType, out var elementType))
             {
-                if (value is not null)
-                {
-                    var existing = (string[]?)rule.Property.GetValue(obj);
-                    string[] updated = existing is null ? [value] : [..existing, value];
-                    rule.Property.SetValue(obj, updated);
-                    setFieldNames.Add(rule.Property.Name);
-                    consumedAt[rule.Property.Name] = i;
-                }
+                // Multi-value collection: string[], T[], List<T>, HashSet<T>, etc.
+                object converted = rule.TupleDividers is not null && elementType.IsGenericType
+                    ? ConvertTupleValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers)
+                    : ConvertValue(value, elementType);
+                if (!pendingCollections.TryGetValue(rule.Property.Name, out var pending))
+                    pending = (rule, [], i);
+                pending.Items.Add(converted);
+                pendingCollections[rule.Property.Name] = (pending.Rule, pending.Items, i);
+                setFieldNames.Add(rule.Property.Name);
+                consumedAt[rule.Property.Name] = i;
             }
             else if (value is not null)
             {
@@ -554,6 +562,13 @@ public static class ArgumentsReader
                     : ConvertValue(value, propType);
                 SetTracked(rule.Property, converted, i);
             }
+        }
+
+        // ── Finalize pending collections ──────────────────────────────────────
+        foreach (var (propName, (colRule, items, lastIdx)) in pendingCollections)
+        {
+            var finalValue = MaterializeCollection(colRule.Property.PropertyType, items);
+            colRule.Property.SetValue(obj, finalValue);
         }
 
         // ── Post-processing: one pass over rules ─────────────────────────────
@@ -829,14 +844,34 @@ public static class ArgumentsReader
         var remaining = raw;
         for (var i = 0; i < typeArgs.Length - 1; i++)
         {
-            var divider = partsDividers
-                ? dividers[i]
-                : dividers[i % dividers.Length];
-            var idx = remaining.IndexOf(divider, StringComparison.Ordinal);
-            if (idx < 0)
-                throw new ArgumentException($"Expected divider '{divider}' in value '{raw}'.");
-            parts[i] = remaining[..idx];
-            remaining = remaining[(idx + divider.Length)..];
+            if (partsDividers)
+            {
+                var divider = dividers[i];
+                var idx = remaining.IndexOf(divider, StringComparison.Ordinal);
+                if (idx < 0)
+                    throw new ArgumentException($"Expected divider '{divider}' in value '{raw}'.");
+                parts[i] = remaining[..idx];
+                remaining = remaining[(idx + divider.Length)..];
+            }
+            else
+            {
+                // Try each divider as an alternative
+                var bestIdx = -1;
+                var bestDivider = dividers[i % dividers.Length];
+                foreach (var d in dividers)
+                {
+                    var idx = remaining.IndexOf(d, StringComparison.Ordinal);
+                    if (idx >= 0 && (bestIdx < 0 || idx < bestIdx))
+                    {
+                        bestIdx = idx;
+                        bestDivider = d;
+                    }
+                }
+                if (bestIdx < 0)
+                    throw new ArgumentException($"Expected one of dividers [{string.Join(", ", dividers.Select(d => $"'{d}'"))}] in value '{raw}'.");
+                parts[i] = remaining[..bestIdx];
+                remaining = remaining[(bestIdx + bestDivider.Length)..];
+            }
         }
         parts[typeArgs.Length - 1] = remaining;
 
@@ -866,5 +901,80 @@ public static class ArgumentsReader
         {
             throw new ArgumentException($"Invalid value '{raw}' for type '{targetType.Name}'.", ex);
         }
+    }
+
+    private static bool IsCollectionProperty(Type type, out Type elementType)
+    {
+        var underlying = Nullable.GetUnderlyingType(type) ?? type;
+
+        // Array: T[]
+        if (underlying.IsArray)
+        {
+            elementType = underlying.GetElementType()!;
+            return true;
+        }
+
+        // Generic collection: List<T>, IList<T>, HashSet<T>, Queue<T>, IEnumerable<T>, etc.
+        if (underlying.IsGenericType)
+        {
+            var typeArg = underlying.GetGenericArguments()[0];
+            var collInterface = typeof(ICollection<>).MakeGenericType(typeArg);
+            var enumInterface = typeof(IEnumerable<>).MakeGenericType(typeArg);
+            if (collInterface.IsAssignableFrom(underlying) || enumInterface.IsAssignableFrom(underlying))
+            {
+                elementType = typeArg;
+                return true;
+            }
+        }
+
+        elementType = type;
+        return false;
+    }
+
+    private static object MaterializeCollection(Type propType, List<object> items)
+    {
+        var underlying = Nullable.GetUnderlyingType(propType) ?? propType;
+
+        // Array: T[]
+        if (underlying.IsArray)
+        {
+            var elementType = underlying.GetElementType()!;
+            var array = Array.CreateInstance(elementType, items.Count);
+            for (var i = 0; i < items.Count; i++)
+                array.SetValue(items[i], i);
+            return array;
+        }
+
+        if (!underlying.IsGenericType)
+            throw new InvalidOperationException($"Cannot materialize collection for type '{propType.Name}'.");
+
+        var typeArg = underlying.GetGenericArguments()[0];
+        var def = underlying.GetGenericTypeDefinition();
+
+        // Interface types → materialise as List<T>
+        if (def == typeof(IEnumerable<>) || def == typeof(ICollection<>) || def == typeof(IList<>)
+            || def == typeof(IReadOnlyList<>) || def == typeof(IReadOnlyCollection<>) || def == typeof(ISet<>)
+            || def == typeof(IReadOnlySet<>))
+        {
+            var fallbackType = (def == typeof(ISet<>) || def == typeof(IReadOnlySet<>))
+                ? typeof(HashSet<>).MakeGenericType(typeArg)
+                : typeof(List<>).MakeGenericType(typeArg);
+            return FillCollection(fallbackType, typeArg, items);
+        }
+
+        return FillCollection(underlying, typeArg, items);
+    }
+
+    private static object FillCollection(Type collectionType, Type elementType, List<object> items)
+    {
+        var instance = Activator.CreateInstance(collectionType)!;
+        var addMethod = typeof(ICollection<>).MakeGenericType(elementType).GetMethod("Add")
+            ?? collectionType.GetMethod("Add", [elementType])
+            ?? collectionType.GetMethod("Enqueue", [elementType]);
+        if (addMethod is null)
+            throw new InvalidOperationException($"Cannot find Add/Enqueue method on '{collectionType.Name}'.");
+        foreach (var item in items)
+            addMethod.Invoke(instance, [item]);
+        return instance;
     }
 }
