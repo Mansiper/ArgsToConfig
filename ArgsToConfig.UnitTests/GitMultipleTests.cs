@@ -61,6 +61,6 @@ public class GitMultipleTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(1);
     }
 }

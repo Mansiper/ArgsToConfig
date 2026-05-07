@@ -60,7 +60,7 @@ public class ArgsOneOfTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(3);
     }
 
     [Test]
@@ -74,7 +74,7 @@ public class ArgsOneOfTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(3);
     }
 
     [Test]
@@ -88,7 +88,7 @@ public class ArgsOneOfTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(5);
     }
 
     [Test]

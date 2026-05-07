@@ -49,10 +49,11 @@ public class TupleTests
         var args = new[] { "--dsc", "1.5helloNoDivider" };
 
         // Act
-        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         errors.Should().NotBeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -98,10 +99,11 @@ public class TupleTests
         var args = new[] { "--bib", "true:1:256" };
 
         // Act
-        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         errors.Should().NotBeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -111,10 +113,11 @@ public class TupleTests
         var args = new[] { "--bib", "yes:1:1" };
 
         // Act
-        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         errors.Should().NotBeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -160,10 +163,11 @@ public class TupleTests
         var args = new[] { "--idcb", "7;3.14;AB;true" };
 
         // Act
-        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         errors.Should().NotBeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -209,10 +213,11 @@ public class TupleTests
         var args = new[] { "--mix", "hi|2|9.9|z" };
 
         // Act
-        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         errors.Should().NotBeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -294,10 +299,11 @@ public class TupleTests
         var args = new[] { "--i3", "1,2" };
 
         // Act
-        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         errors.Should().NotBeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -325,9 +331,10 @@ public class TupleTests
         var args = new[] { "--alt", "a-1b" };
 
         // Act
-        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
+        var (_, errors, position) = ArgumentsReader.ToObject<TupleExample>(args);
 
         // Assert
         errors.Should().NotBeNull();
+        position.Should().Be(2);
     }
 }

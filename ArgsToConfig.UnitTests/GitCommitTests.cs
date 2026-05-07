@@ -120,7 +120,7 @@ public class GitCommitTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(3);
     }
 
     [Test]
@@ -134,7 +134,7 @@ public class GitCommitTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(3);
     }
 
     [Test]
@@ -148,7 +148,7 @@ public class GitCommitTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(3);
     }
 
     [Test]
@@ -182,7 +182,7 @@ public class GitCommitTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -196,7 +196,7 @@ public class GitCommitTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(3);
     }
 
     [Test]
@@ -210,7 +210,7 @@ public class GitCommitTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -224,7 +224,7 @@ public class GitCommitTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(2);
     }
 
     [Test]

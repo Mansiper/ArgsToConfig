@@ -155,7 +155,10 @@ internal static class InnerToObject
                 var subArgNames2 = BuildKnownArgNames(subRulesCache[subType2]);
                 var conflicts2 = parentArgNames.Intersect(subArgNames2, StringComparer.OrdinalIgnoreCase).ToList();
                 if (conflicts2.Count > 0)
-                    return ($"Argument name conflict between root and subcommand '{subcmdName2}': {string.Join(", ", conflicts2)}.", null);
+                {
+                    var conflictArgIndex = conflicts2.Select(c => Array.IndexOf(args, c)).Where(idx => idx >= 0).DefaultIfEmpty(0).Max();
+                    return ($"Argument name conflict between root and subcommand '{subcmdName2}': {string.Join(", ", conflicts2)}.", conflictArgIndex);
+                }
             }
 
             // Segment args by subcommand keywords; non-subcommand args go to the root
@@ -183,7 +186,7 @@ internal static class InnerToObject
             }
 
             if (segments.Count == 0)
-                return ("No subcommand specified.", null);
+                return ("No subcommand specified.", 0);
 
             // Apply each subcommand segment
             foreach (var (segRule, segArgs) in segments)
@@ -251,7 +254,10 @@ internal static class InnerToObject
                     continue; // belongs to a different pipeline in a different class, skip
 
                 if (commandByName.TryGetValue(cmdName, out _))
-                    return ($"Duplicate [ArgsPipelineCommand] name '{cmdName}' found across pipeline properties.", null);
+                {
+                    var dupIdx = Array.IndexOf(args, cmdName);
+                    return ($"Duplicate [ArgsPipelineCommand] name '{cmdName}' found across pipeline properties.", dupIdx >= 0 ? dupIdx : 0);
+                }
                 commandByName[cmdName] = (cmdType, matchingPipelineRule);
             }
 
@@ -266,7 +272,10 @@ internal static class InnerToObject
 
             // Validate: pipeline command names must not collide with root positional parameter names
             foreach (var cmdName in commandByName.Keys.Where(rootPositionalNames.Contains))
-                return ($"Pipeline command name '{cmdName}' conflicts with a root parameter name.", null);
+            {
+                var conflictIdx = Array.IndexOf(args, cmdName);
+                return ($"Pipeline command name '{cmdName}' conflicts with a root parameter name.", conflictIdx >= 0 ? conflictIdx : 0);
+            }
 
             // Validate: no pipeline command should use another pipeline command name as an argument name
             var cmdRulesCache = new Dictionary<Type, List<PropertyRule>>();
@@ -283,7 +292,10 @@ internal static class InnerToObject
                             cmdPositionalNames.Add(n);
                 foreach (var otherCmdName in commandByName.Keys)
                     if (!string.Equals(otherCmdName, cmdName, StringComparison.OrdinalIgnoreCase) && cmdPositionalNames.Contains(otherCmdName))
-                        return ($"Pipeline command '{cmdName}' uses another pipeline command name '{otherCmdName}' as an argument.", null);
+                    {
+                        var otherIdx = Array.IndexOf(args, otherCmdName);
+                        return ($"Pipeline command '{cmdName}' uses another pipeline command name '{otherCmdName}' as an argument.", otherIdx >= 0 ? otherIdx : 0);
+                    }
             }
 
             // Segment args: each segment starts when a pipeline command name is encountered
@@ -308,7 +320,7 @@ internal static class InnerToObject
                         // Switching to a different pipeline: close the current one
                         closedPipelineRules.Add(currentPipelineRule);
                     if (closedPipelineRules.Contains(cmdEntry.PipelineRule))
-                        return ($"Cannot go back to a previously used pipeline. Command '{a}' belongs to a pipeline that was already closed.", null);
+                        return ($"Cannot go back to a previously used pipeline. Command '{a}' belongs to a pipeline that was already closed.", i2);
                     currentPipelineRule = cmdEntry.PipelineRule;
 
                     // Collect args for this command until next command name or root positional or end
@@ -488,7 +500,7 @@ internal static class InnerToObject
             if (!argIndex.TryGetValue(key, out var entry))
             {
                 if (!ignoreUnknown && !knownArgNames.Contains(key))
-                    return ($"Unknown argument: '{a}'.", null);
+                        return ($"Unknown argument: '{a}'.", i);
                 continue;
             }
 
@@ -498,7 +510,7 @@ internal static class InnerToObject
             if (boolValue is not null)
             {
                 var e4 = SetTracked(rule.Property, boolValue.Value, i);
-                if (e4 is not null) return (e4, null);
+                if (e4 is not null) return (e4, i);
                 continue;
             }
 
@@ -508,7 +520,7 @@ internal static class InnerToObject
                 if ((Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType) == typeof(bool))
                 {
                     var e3 = SetTracked(rule.Property, true, i);
-                    if (e3 is not null) return (e3, null);
+                    if (e3 is not null) return (e3, i);
                 }
                 continue;
             }
@@ -517,11 +529,12 @@ internal static class InnerToObject
             if (member is not null)
             {
                 var e5 = SetTracked(rule.Property, member.Value, i);
-                if (e5 is not null) return (e5, null);
+                if (e5 is not null) return (e5, i);
                 continue;
             }
 
             // ── ArgsValueFor (and ArgsEnum backed by ArgsValueFor) ────────────
+            var flagIndex = i;
             var value = inlineValue;
             if (value is null)
             {
@@ -531,10 +544,10 @@ internal static class InnerToObject
                     value = next;
                     i++;
                 }
-                else if (next is not null && next.StartsWith('-') && !next.StartsWith("\"") && !next.StartsWith("'"))
-                    return ($"Argument '{key}' requires a value but got '{next}' instead.", null);
+                if (next is not null && next.StartsWith('-') && !next.StartsWith("\"") && !next.StartsWith("'"))
+                    return ($"Argument '{key}' requires a value but got '{next}' instead.", i + 1);
                 else if (next is null && !rule.ValueForOptional)
-                    return ($"Argument '{key}' requires a value but none was provided.", null);
+                    return ($"Argument '{key}' requires a value but none was provided.", flagIndex);
             }
 
             var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
@@ -549,13 +562,13 @@ internal static class InnerToObject
                         var memberValue = mr.ArgsValue ?? mr.Value.ToString()!;
                         if (!string.Equals(memberValue, value, StringComparison.OrdinalIgnoreCase))
                             continue;
-                        var e2 = SetTracked(rule.Property, mr.Value, i);
-                        if (e2 is not null) return (e2, null);
+                        var e2 = SetTracked(rule.Property, mr.Value, flagIndex);
+                        if (e2 is not null) return (e2, flagIndex);
                         enumMatched = true;
                         break;
                     }
                     if (!enumMatched)
-                        return ($"Invalid value '{value}' for argument '{key}'.", null);
+                        return ($"Invalid value '{value}' for argument '{key}'.", i);
                 }
             }
             else if (value is not null && rule.ConvertorType is not null)
@@ -564,12 +577,12 @@ internal static class InnerToObject
                 {
                     var convertorInstance = (IArgsConvertor)Activator.CreateInstance(rule.ConvertorType)!;
                     var converted = convertorInstance.Convert(value);
-                    var e0 = SetTracked(rule.Property, converted, i);
-                    if (e0 is not null) return (e0, null);
+                    var e0 = SetTracked(rule.Property, converted, flagIndex);
+                    if (e0 is not null) return (e0, flagIndex);
                 }
                 catch (Exception ex)
                 {
-                    return (ex.Message, null);
+                    return (ex.Message, i);
                 }
             }
             else if (value is not null && IsCollectionProperty(rule.Property.PropertyType, out var elementType))
@@ -583,15 +596,15 @@ internal static class InnerToObject
                         ? ConvertTupleValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers)
                         : ConvertValue(value, elementType);
                     if (!pendingCollections.TryGetValue(rule.Property.Name, out var pending))
-                        pending = (rule, [], i);
+                        pending = (rule, [], flagIndex);
                     pending.Items.Add(converted);
-                    pendingCollections[rule.Property.Name] = (pending.Rule, pending.Items, i);
+                    pendingCollections[rule.Property.Name] = (pending.Rule, pending.Items, flagIndex);
                     setFieldNames.Add(rule.Property.Name);
-                    consumedAt[rule.Property.Name] = i;
+                    consumedAt[rule.Property.Name] = flagIndex;
                 }
                 catch (Exception ex)
                 {
-                    return (ex.Message, null);
+                    return (ex.Message, i);
                 }
             }
             else if (value is not null)
@@ -603,17 +616,17 @@ internal static class InnerToObject
                     var converted = rule.TupleDividers is not null && propType.IsGenericType
                         ? ConvertTupleValue(value, propType, rule.TupleDividers, rule.TuplePartsDividers)
                         : ConvertValue(value, propType);
-                    var e1 = SetTracked(rule.Property, converted, i);
-                    if (e1 is not null) return (e1, null);
+                    var e1 = SetTracked(rule.Property, converted, flagIndex);
+                    if (e1 is not null) return (e1, flagIndex);
                 }
                 catch (Exception ex)
                 {
-                    return (ex.Message, null);
+                    return (ex.Message, i);
                 }
             }
         }
 
-        // ── Finalize pending collections ──────────────────────────────────────
+        // ── Finalize pending collections
         foreach (var (_, (colRule, items, _)) in pendingCollections)
         {
             var finalValue = MaterializeCollection(colRule.Property.PropertyType, items);
@@ -697,11 +710,11 @@ internal static class InnerToObject
                             if (prePropType == typeof(string))
                                 ValidatePathConstraints(preRule, pval);
                             var e9 = SetTracked(preRule.Property, ConvertValue(pval, prePropType), pidx);
-                            if (e9 is not null) return (e9, null);
+                                if (e9 is not null) return (e9, pidx);
                         }
                         catch (Exception ex)
                         {
-                            return (ex.Message, null);
+                            return (ex.Message, pidx);
                         }
                     }
                 }
@@ -727,7 +740,7 @@ internal static class InnerToObject
                     // Ensure none of the AfterFields appear after the candidate (they become immutable)
                     foreach (var fieldName in rule.AfterFields)
                         if (consumedAt.TryGetValue(fieldName, out var fieldIdx) && fieldIdx > candidate.index)
-                            return ($"Field '{fieldName}' cannot be changed after '{rule.Property.Name}' has been assigned ([ArgsAfter]).", null);
+                            return ($"Field '{fieldName}' cannot be changed after '{rule.Property.Name}' has been assigned ([ArgsAfter]).", candidate.index);
 
                     var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
                     try
@@ -735,11 +748,11 @@ internal static class InnerToObject
                         if (propType == typeof(string))
                             ValidatePathConstraints(rule, candidate.value);
                         var e10 = SetTracked(rule.Property, ConvertValue(candidate.value, propType), candidate.index);
-                        if (e10 is not null) return (e10, null);
+                            if (e10 is not null) return (e10, candidate.index);
                     }
                     catch (Exception ex)
                     {
-                        return (ex.Message, null);
+                        return (ex.Message, candidate.index);
                     }
                 }
             }
@@ -781,13 +794,14 @@ internal static class InnerToObject
                     if (propType == typeof(string))
                         ValidatePathConstraints(epRule, pval);
                     var e11 = SetTracked(epRule.Property, ConvertValue(pval, propType), pidx);
-                    if (e11 is not null) return (e11, null);
+                    if (e11 is not null) return (e11, pidx);
                 }
                 catch (Exception ex)
                 {
-                    return (ex.Message, null);
+                    return (ex.Message, pidx);
                 }
             }
+
         }
         consumedIndices = new HashSet<int>(consumedAt.Values);
         var remainingPositionals = unconsumedPositionals
@@ -803,15 +817,15 @@ internal static class InnerToObject
                 if (propType == typeof(string))
                     ValidatePathConstraints(ipRule, pval);
                 var e12 = SetTracked(ipRule.Property, ConvertValue(pval, propType), pidx);
-                if (e12 is not null) return (e12, null);
+            if (e12 is not null) return (e12, pidx);
             }
             catch (Exception ex)
             {
-                return (ex.Message, null);
+                return (ex.Message, pidx);
             }
         }
 
-        // ── Remaining validation ──────────────────────────────────────────────
+        // ── Remaining validation
 
         // ArgsOneOf class-level validation
         var oneOfAttributes = obj.GetType().GetCustomAttributes<ArgsOneOfAttribute>();
@@ -819,7 +833,14 @@ internal static class InnerToObject
         {
             var setInGroup = oneOfAttr.GetFields.Where(setFieldNames.Contains).ToList();
             if (setInGroup.Count > 1)
-                return ($"Properties '{string.Join("', '", oneOfAttr.GetFields)}' are mutually exclusive ([ArgsOneOf]).", null);
+            {
+                var lastConflictPos = setInGroup
+                    .Where(consumedAt.ContainsKey)
+                    .Select(f => consumedAt[f])
+                    .DefaultIfEmpty(0)
+                    .Max();
+                return ($"Properties '{string.Join("', '", oneOfAttr.GetFields)}' are mutually exclusive ([ArgsOneOf]).", lastConflictPos);
+            }
         }
 
         foreach (var rule in rules)
@@ -831,7 +852,10 @@ internal static class InnerToObject
             {
                 foreach (var required in rule.IfSetFields)
                     if (!setFieldNames.Contains(required))
-                        return ($"Property '{name}' requires '{required}' to be set.", null);
+                    {
+                        var ifSetPos = consumedAt.TryGetValue(name, out var pos) ? pos : 0;
+                        return ($"Property '{name}' requires '{required}' to be set.", ifSetPos);
+                    }
             }
         }
 

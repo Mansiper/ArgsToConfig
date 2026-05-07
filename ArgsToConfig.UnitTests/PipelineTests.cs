@@ -60,7 +60,7 @@ public class PipelineTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(1);    //or maybe null?
     }
 
     [Test]
@@ -74,7 +74,7 @@ public class PipelineTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(1);    //or maybe null?
     }
 
     [Test]
@@ -88,7 +88,7 @@ public class PipelineTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(2);    //or maybe null?
     }
 
     [Test]

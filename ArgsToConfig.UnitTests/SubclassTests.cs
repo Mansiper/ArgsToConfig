@@ -38,6 +38,6 @@ public class SubclassTests
 
          // Assert
          errors.Should().NotBeNull();
-         position.Should().BeNull();
+         position.Should().Be(6);   //or maybe null?
      }
 }

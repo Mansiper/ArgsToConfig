@@ -43,6 +43,6 @@ public class ConvertorTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(2);
     }
 }

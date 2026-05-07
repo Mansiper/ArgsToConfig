@@ -45,7 +45,7 @@ public class AcceptFromAmongTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(2);
     }
 
     [Test]
@@ -102,6 +102,6 @@ public class AcceptFromAmongTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(4);
     }
 }

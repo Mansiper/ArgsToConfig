@@ -118,7 +118,7 @@ public class PipelineMultipleTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(1);    //or maybe null?
     }
 
     [Test]
@@ -152,6 +152,6 @@ public class PipelineMultipleTests
 
         // Assert
         errors.Should().NotBeNull();
-        position.Should().BeNull();
+        position.Should().Be(5);
     }
 }

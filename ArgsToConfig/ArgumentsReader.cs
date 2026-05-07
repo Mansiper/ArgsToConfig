@@ -14,7 +14,7 @@ public static class ArgumentsReader
         var validationResults = new List<ValidationResult>();
         if (!Validator.TryValidateObject(obj, new ValidationContext(obj), validationResults, validateAllProperties: true))
             return (default, validationResults.Select(r => r.ErrorMessage ?? "Validation error").ToArray(), null);
-        return (obj, error is null ? null : [error], position);
+        return (obj, error is null ? null : [error], position + 1);
     }
 
     public static string[] ToArgs<T>(T obj) where T : new()
