@@ -943,6 +943,15 @@ public static class ArgumentsReader
             if (targetType == typeof(bool)) return bool.Parse(raw);
             if (targetType == typeof(int)) return int.Parse(raw);
             if (targetType == typeof(DateTime)) return DateTime.Parse(raw);
+            if (targetType == typeof(DateOnly)) return DateOnly.Parse(raw);
+            if (targetType == typeof(TimeOnly)) return TimeOnly.Parse(raw);
+            if (targetType == typeof(TimeSpan)) return TimeSpan.Parse(raw);
+            if (targetType == typeof(Guid)) return Guid.Parse(raw);
+            if (targetType == typeof(Uri)) return new Uri(raw);
+            if (targetType == typeof(FileInfo)) return new FileInfo(raw);
+            if (targetType == typeof(DirectoryInfo)) return new DirectoryInfo(raw);
+            if (targetType == typeof(System.Net.IPAddress)) return System.Net.IPAddress.Parse(raw);
+            if (targetType == typeof(Version)) return Version.Parse(raw);
             if (targetType.IsEnum) return Enum.Parse(targetType, raw, ignoreCase: true);
             return Convert.ChangeType(raw, targetType);
         }
