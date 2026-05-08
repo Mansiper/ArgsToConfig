@@ -9,17 +9,16 @@
 public class ArgsEnumAttribute : Attribute
 {
     private readonly string? name;
-    private readonly bool optional;
 
+    public bool Optional { get; set; }
     public string? DefaultValue { get; set; }
     public string? Description { get; set; }
     public string? EnvVar { get; set; }
 
     public ArgsEnumAttribute() { }
 
-    public ArgsEnumAttribute(string name, bool optional = false) =>
-        (this.name, this.optional) = (name, optional);
+    public ArgsEnumAttribute(string name) =>
+        this.name = name;
 
     internal string[]? GetNames => name?.Split('|');
-    internal bool GetOptional => optional;
 }

@@ -14,5 +14,5 @@ public class ArgsValueAttribute : Attribute
     public ArgsValueAttribute(string name) =>
         this.name = name;
 
-    internal string GetValue => name;
+    internal string[] GetValues => name.Split('|');
 }

@@ -84,7 +84,7 @@ public static class HelpGenerator
         if (valueFor is not null)
         {
             var placeholder = $"<{prop.Name.ToLower()}>";
-            if (valueFor.GetOptional)
+            if (valueFor.Optional)
                 sb.Append($" [{placeholder}]");
             else
                 sb.Append($" {placeholder}");
@@ -114,7 +114,7 @@ public static class HelpGenerator
                     var mVal = member.GetCustomAttribute<ArgsValueAttribute>();
                     var memberDesc = mHas?.Description ?? mVal?.Description;
                     if (memberDesc is null) continue;
-                    var memberName = mHas?.GetNames is { } n ? string.Join(", ", n) : (mVal?.GetValue ?? member.Name.ToLower());
+                    var memberName = mHas?.GetNames is { } n ? string.Join(", ", n) : (mVal?.GetValues is { } v ? string.Join(", ", v) : member.Name.ToLower());
                     sb.AppendLine($"      {memberName}\t{memberDesc}");
                 }
             }
@@ -149,7 +149,7 @@ public static class HelpGenerator
         if (argsEnum?.GetNames is not null)
             return string.Join(", ", argsEnum.GetNames);
         if (argsObject is not null)
-            return argsObject.GetName;
+            return string.Join(", ", argsObject.GetNames);
         if (argsPathspec is not null)
             return "[--] <pathspec>...";
         if (argsPositional is not null)

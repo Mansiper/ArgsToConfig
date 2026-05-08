@@ -22,7 +22,7 @@ internal static class InnerToArgs
             // ── ArgsObject ───────────────────────────────────────────────────
             if (rule.IsObject)
             {
-                deferred.Add(rule.ObjectRootName!);
+                deferred.Add(rule.ObjectRootName![0]);
                 BuildArgs(rawValue, deferred);
                 continue;
             }
@@ -71,15 +71,18 @@ internal static class InnerToArgs
             }
 
             // ── ArgsEnum ─────────────────────────────────────────────────────
-            if (rule.IsEnum && rule.EnumMemberRules is not null)
+            if (rule is { IsEnum: true, EnumMemberRules: not null })
             {
                 var enumVal = rawValue;
                 // Per-member ArgsHasParameter (no ValueFor)
                 if (rule.ValueForNames is null)
                 {
-                    var mr = rule.EnumMemberRules.FirstOrDefault(m => m.Value.Equals(enumVal) && m.HasParameterNames is not null);
+                    var mr = rule.EnumMemberRules.FirstOrDefault(m => m.Value.Equals(enumVal));
                     if (mr is not null)
-                        result.Add(mr.HasParameterNames![0]);
+                    {
+                        if (mr.ArgsValue is not null)
+                            result.Add(mr.ArgsValue[0]);
+                    }
                     continue;
                 }
                 // Backed by ArgsValueFor: emit --flag value
@@ -87,7 +90,7 @@ internal static class InnerToArgs
                 if (valueMr is not null)
                 {
                     result.Add(rule.ValueForNames![0]);
-                    result.Add(valueMr.ArgsValue ?? valueMr.Value.ToString()!);
+                    result.Add(valueMr.ArgsValue?[0] ?? valueMr.Value.ToString()!);
                 }
                 continue;
             }
@@ -143,7 +146,7 @@ internal static class InnerToArgs
             if (rule.IsObject)
             {
                 if (rule.ObjectRootName is not null)
-                    tokens.Add(rule.ObjectRootName);
+                    tokens.Add(rule.ObjectRootName[0]);
                 BuildArgsString(rule.Property.PropertyType, tokens);
                 continue;
             }
@@ -170,19 +173,19 @@ internal static class InnerToArgs
                 if (propType == typeof(bool))
                 {
                     var names = string.Join(" | ", rule.HasParameterNames);
-                    tokens.Add(rule.HasParameterNames.Length > 1 ? $"[{names}]" : $"[{names}]");
+                    tokens.Add($"[{names}]");
                 }
                 continue;
             }
 
             // ── ArgsEnum ─────────────────────────────────────────────────────
-            if (rule.IsEnum && rule.EnumMemberRules is not null)
+            if (rule is { IsEnum: true, EnumMemberRules: not null })
             {
                 if (rule.ValueForNames is not null)
                 {
                     var flag = rule.ValueForNames[0];
                     var values = string.Join(" | ", rule.EnumMemberRules
-                        .Select(m => m.ArgsValue ?? m.Value.ToString()!));
+                        .Select(m => m.ArgsValue?[0] ?? m.Value.ToString()!));
                     var optional = rule.ValueForOptional;
                     var token = $"{flag} ({values})";
                     tokens.Add(optional ? $"[{token}]" : $"<{token}>");
@@ -190,8 +193,8 @@ internal static class InnerToArgs
                 else
                 {
                     var names = string.Join(" | ", rule.EnumMemberRules
-                        .Where(m => m.HasParameterNames is not null)
-                        .Select(m => m.HasParameterNames![0]));
+                        .Select(m => m.ArgsValue?[0])
+                        .Where(n => n is not null));
                     if (!string.IsNullOrEmpty(names))
                         tokens.Add($"[{names}]");
                 }
@@ -207,7 +210,7 @@ internal static class InnerToArgs
                 {
                     var underlyingType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
                     var isCollection = InnerToObject.IsCollectionProperty(underlyingType, out var elementType);
-                    var tupleType = isCollection ? elementType! : underlyingType;
+                    var tupleType = isCollection ? elementType : underlyingType;
                     var typeArgs = tupleType.GetGenericArguments();
                     var dividers = rule.TupleDividers;
                     var parts = new System.Text.StringBuilder();

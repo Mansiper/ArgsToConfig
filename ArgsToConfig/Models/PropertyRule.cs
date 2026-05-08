@@ -36,7 +36,7 @@ internal sealed class PropertyRule
 
     // ArgsObject (sub-object dispatch)
     public bool IsObject { get; init; }
-    public string? ObjectRootName { get; init; }
+    public string[]? ObjectRootName { get; init; }
 
     // ArgsPipeline (array of interface instances)
     public bool IsPipeline { get; init; }

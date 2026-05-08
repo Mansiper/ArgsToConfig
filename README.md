@@ -3,7 +3,9 @@
 **ArgsToConfig** is a .NET library that maps CLI arguments directly onto a strongly-typed configuration class using attributes.  
 No manual parsing loops — just decorate your properties and call `ArgumentsReader.ToObject<T>()`.
 
-> 📦 NuGet: *link coming soon*
+> 📦 NuGet: *link coming soon*  
+
+*Breaking changes are still possible until the 1.0 release.*
 
 ---
 
@@ -126,7 +128,7 @@ Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) 
 | `[ArgsHasParameter("name")]` | `bool` property | `true` when the named flag is present in the arguments |
 | `[ArgsValueFor("name")]` | any property | reads the value that follows the named flag |
 | `[ArgsValueForBool("true-name", "false-name")]` | `bool` property | sets `true`/`false` depending on which flag is present |
-| `[ArgsEnum]` | enum property | maps flag/value arguments to enum members decorated with `[ArgsValue]`; optionally accepts pipe-separated flag names and an `optional` parameter |
+| `[ArgsEnum]` | enum property | maps flag/value arguments to enum members decorated with `[ArgsValue]`; optionally accepts pipe-separated flag names |
 | `[ArgsValue("value")]` | enum member | the CLI string value that maps to this enum member |
 | `[ArgsAfter("prop1", "prop2", ...)]` | any property | the field can only be assigned a value after **all** of the specified fields have been assigned; once this field receives a value, the specified fields become immutable |
 | `[ArgsOneOf("prop1", "prop2", ...)]` | **class** | only one of the listed fields may have a value at a time; all listed fields must be nullable; may be applied multiple times |
@@ -275,7 +277,7 @@ enum LogLevel { Debug, Info, Warn, Error }
 class AppConfig
 {
     // myapp --log-level warn
-    [ArgsEnum("--log-level|-l", optional: true, DefaultValue = nameof(LogLevel.Info))]
+    [ArgsEnum("--log-level|-l", Optional = true, DefaultValue = nameof(LogLevel.Info))]
     public LogLevel LogLevel { get; set; }
 }
 ```
@@ -300,7 +302,7 @@ The subcommand keyword is specified directly on `[ArgsObject]`. The sub-object c
 // app connect -u alice -p secret run
 class AppConfig
 {
-    [ArgsObject("connect")]
+    [ArgsObject("connect|-c")]
     public ConnectionConfig Connect { get; set; } = null!;
 
     [ArgsHasParameter("run")]
@@ -486,10 +488,10 @@ class CommonTypesConfig
 [ArgsOneOf(nameof(File), nameof(Message))]   // exactly one of File/Message may be set
 class CommitConfig
 {
-    [ArgsValueFor("-F|--file", optional: true)]
+    [ArgsValueFor("-F|--file", Optional = true)]
     public string? File { get; set; }
 
-    [ArgsValueFor("-m|--message", optional: true)]
+    [ArgsValueFor("-m|--message", Optional = true)]
     public string? Message { get; set; }
 
     [ArgsHasParameter("--pathspec-file-nul")]

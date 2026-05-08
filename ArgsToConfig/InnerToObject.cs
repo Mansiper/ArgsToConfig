@@ -37,7 +37,7 @@ internal static class InnerToObject
                 {
                     Property = prop,
                     IsObject = true,
-                    ObjectRootName = isObject.GetName
+                    ObjectRootName = isObject.GetNames
                 });
                 continue;
             }
@@ -73,20 +73,19 @@ internal static class InnerToObject
                     var members = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
                     enumMemberRules = members.Select(m =>
                     {
-                        var mHas = m.GetCustomAttribute<ArgsHasParameterAttribute>();
                         var mVal = m.GetCustomAttribute<ArgsValueAttribute>();
                         return new EnumMemberRule
                         {
                             Value = m.GetValue(null)!,
-                            HasParameterNames = mHas?.GetNames,
-                            ArgsValue = mVal?.GetValue
+                            ArgsValue = mVal?.GetValues
                         };
                     }).ToArray();
 
                     // Promote ArgsEnum name params to valueFor if specified on the attribute
                     if (argsEnum!.GetNames is not null && valueFor is null)
-                        valueFor = new ArgsValueForAttribute(string.Join("|", argsEnum.GetNames), argsEnum.GetOptional)
+                        valueFor = new ArgsValueForAttribute(string.Join("|", argsEnum.GetNames))
                         {
+                            Optional = argsEnum.Optional,
                             DefaultValue = argsEnum.DefaultValue
                         };
                 }
@@ -98,7 +97,7 @@ internal static class InnerToObject
                 HasParameterNames = hasParam?.GetNames,
                 HasParameterPosition = hasParam?.GetPosition ?? -1,
                 ValueForNames = valueFor?.GetNames,
-                ValueForOptional = valueFor?.GetOptional ?? false,
+                ValueForOptional = valueFor?.Optional ?? false,
                 ValueForDefault = valueFor?.DefaultValue,
                 ValueForBoolTrueNames = valueForBool?.GetTrueNames,
                 ValueForBoolFalseNames = valueForBool?.GetFalseNames,
@@ -130,11 +129,12 @@ internal static class InnerToObject
         var objectRules = rules.Where(r => r.IsObject).ToList();
         if (objectRules.Count > 0)
         {
-            // Build a map: subcommand name → rule
+            // Build a map: subcommand name → rule (supports pipe-separated and dash-prefixed names)
             var subcmdMap = new Dictionary<string, PropertyRule>(StringComparer.OrdinalIgnoreCase);
             foreach (var r in objectRules)
                 if (r.ObjectRootName is not null)
-                    subcmdMap[r.ObjectRootName] = r;
+                    foreach (var n in r.ObjectRootName)
+                        subcmdMap[n.Trim()] = r;
 
             var nonObjectRules = rules.Where(r => !r.IsObject).ToList();
             var parentArgNames = BuildKnownArgNames(nonObjectRules);
@@ -170,9 +170,9 @@ internal static class InnerToObject
 
             foreach (var a in args)
             {
-                if (!a.StartsWith('-') && subcmdMap.TryGetValue(a, out var foundRule))
+                if (subcmdMap.TryGetValue(a, out var foundRule))
                 {
-                    // Start a new segment for this subcommand
+                    // Start a new segment for this subcommand (works for both dash and non-dash names)
                     var currentRule = foundRule;
                     currentSegArgs = [];
                     segments.Add((currentRule, currentSegArgs));
@@ -444,9 +444,13 @@ internal static class InnerToObject
             else if (rule is { IsEnum: true, EnumMemberRules: not null, ValueForNames: null })
             {
                 foreach (var mr in rule.EnumMemberRules)
-                    if (mr.HasParameterNames is not null)
-                        foreach (var n in mr.HasParameterNames)
-                            argIndex[n] = (rule, null, mr);
+                {
+                    // Also register dash-prefixed ArgsValue strings as direct flag entries
+                    if (mr.ArgsValue is not null)
+                        foreach (var n in mr.ArgsValue)
+                            if (n.Trim().StartsWith('-'))
+                                argIndex[n.Trim()] = (rule, null, mr);
+                }
             }
             else if (rule.ValueForNames is not null)
             {
@@ -560,8 +564,9 @@ internal static class InnerToObject
                     var enumMatched = false;
                     foreach (var mr in rule.EnumMemberRules)
                     {
-                        var memberValue = mr.ArgsValue ?? mr.Value.ToString()!;
-                        if (!string.Equals(memberValue, value, StringComparison.OrdinalIgnoreCase))
+                        var matched = mr.ArgsValue?.Any(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase)) ?? 
+                                      string.Equals(mr.Value.ToString(), value, StringComparison.OrdinalIgnoreCase);
+                        if (!matched)
                             continue;
                         var e2 = SetTracked(rule.Property, mr.Value, flagIndex);
                         if (e2 is not null) return (e2, flagIndex);
@@ -678,8 +683,9 @@ internal static class InnerToObject
                     var enumMatched = false;
                     foreach (var mr in rule.EnumMemberRules)
                     {
-                        var memberValue = mr.ArgsValue ?? mr.Value.ToString()!;
-                        if (!string.Equals(memberValue, envValue, StringComparison.OrdinalIgnoreCase))
+                        var matched = mr.ArgsValue?.Any(v => string.Equals(v, envValue, StringComparison.OrdinalIgnoreCase)) ?? 
+                                      string.Equals(mr.Value.ToString(), envValue, StringComparison.OrdinalIgnoreCase);
+                        if (!matched)
                             continue;
                         var ee = SetTracked(rule.Property, mr.Value, -1);
                         if (ee is not null) return (ee, null);
@@ -721,8 +727,9 @@ internal static class InnerToObject
             {
                 foreach (var mr in rule.EnumMemberRules)
                 {
-                    var memberValue = mr.ArgsValue ?? mr.Value.ToString()!;
-                    if (!string.Equals(memberValue, rule.ValueForDefault, StringComparison.OrdinalIgnoreCase))
+                    var defaultMatched = mr.ArgsValue?.Any(v => string.Equals(v, rule.ValueForDefault, StringComparison.OrdinalIgnoreCase)) ?? 
+                                         string.Equals(mr.Value.ToString(), rule.ValueForDefault, StringComparison.OrdinalIgnoreCase);
+                    if (!defaultMatched)
                         continue;
                     var e6 = SetTracked(rule.Property, mr.Value, -1);
                     if (e6 is not null) return (e6, null);
@@ -742,6 +749,26 @@ internal static class InnerToObject
                     var e7 = SetTracked(rule.Property, true, -1);
                     if (e7 is not null) return (e7, null);
                 }
+            }
+
+            // Unnamed ArgsEnum: match non-dash ArgsValue strings against positional args
+            if (!setFieldNames.Contains(name)
+                && rule is { IsEnum: true, EnumMemberRules: not null, ValueForNames: null })
+            {
+                foreach (var positional in positionalArgs)
+                {
+                    foreach (var mr in rule.EnumMemberRules)
+                    {
+                        if (mr.ArgsValue is null) continue;
+                        var matched = mr.ArgsValue.Any(v => !v.Trim().StartsWith('-')
+                                   && string.Equals(v.Trim(), positional.value, StringComparison.OrdinalIgnoreCase));
+                        if (!matched) continue;
+                        var ep = SetTracked(rule.Property, mr.Value, positional.index);
+                        if (ep is not null) return (ep, positional.index);
+                        goto nextRule;
+                    }
+                }
+                nextRule:;
             }
 
             // ArgsPathspec
@@ -958,9 +985,12 @@ internal static class InnerToObject
                     names.Add(n);
             if (rule.EnumMemberRules is not null)
                 foreach (var mr in rule.EnumMemberRules)
-                    if (mr.HasParameterNames is not null)
-                        foreach (var n in mr.HasParameterNames)
-                            names.Add(n);
+                {
+                    if (mr.ArgsValue is not null && rule.ValueForNames is null)
+                        foreach (var n in mr.ArgsValue)
+                            if (n.Trim().StartsWith('-'))
+                                names.Add(n.Trim());
+                }
         }
         return names;
     }
@@ -980,7 +1010,11 @@ internal static class InnerToObject
             CollectSingleCharFlags(rule.ValueForBoolFalseNames, singleCharFlags, null);
             if (rule.EnumMemberRules is not null)
                 foreach (var mr in rule.EnumMemberRules)
-                    CollectSingleCharFlags(mr.HasParameterNames, singleCharFlags, null);
+                {
+                    // ArgsValue dash alternatives on unnamed enum members
+                    if (mr.ArgsValue is not null && rule.ValueForNames is null)
+                        CollectSingleCharFlags(mr.ArgsValue.Select(v => v.Trim()).ToArray(), singleCharFlags, null);
+                }
         }
 
         if (singleCharFlags.Count == 0 && valueFlags.Count == 0)

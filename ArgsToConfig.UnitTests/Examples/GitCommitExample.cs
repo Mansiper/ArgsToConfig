@@ -25,7 +25,7 @@ internal class GitCommitExample
     [ArgsHasParameter("-v|--verbose", Description = "Show unified diff between HEAD and what would be committed at the bottom of the commit message")]
     public bool Verbose { get; set; }
 
-    [ArgsEnum("-u|--untracked-files", true, DefaultValue = "Normal", Description = "Show untracked files. Mode: normal, all, or no")]
+    [ArgsEnum("-u|--untracked-files", Optional = true, DefaultValue = "Normal", Description = "Show untracked files. Mode: normal, all, or no")]
     public UntrackedFiles UntrackedFiles { get; set; }
 
     [ArgsHasParameter("--amend", Description = "Replace the tip of the current branch by creating a new commit")]
@@ -38,10 +38,10 @@ internal class GitCommitExample
     [ArgsTuple(":")]
     public (string, string)? FixupCommit { get; set; }
 
-    [ArgsValueFor("-F|--file", true, Description = "Take the commit message from the given file")]
+    [ArgsValueFor("-F|--file", Optional = true, Description = "Take the commit message from the given file")]
     public string? File { get; set; }
 
-    [ArgsValueFor("-m|--message", true, Description = "Use the given message as the commit message")]
+    [ArgsValueFor("-m|--message", Optional = true, Description = "Use the given message as the commit message")]
     public string? Message { get; set; }
 
     [ArgsHasParameter("--reset-author", Description = "When amending, reset the author to the committer identity")]
@@ -85,7 +85,7 @@ internal class GitCommitExample
     [ArgsTuple("=", ":")]
     public List<(string, int)>? Trailer { get; set; }
 
-    [ArgsValueFor("-S", true, Description = "GPG-sign the commit using the given key ID (requires --trailer)")]
+    [ArgsValueFor("-S", Optional = true, Description = "GPG-sign the commit using the given key ID (requires --trailer)")]
     [ArgsIfSet(nameof(Trailer))]
     public string? SignKeyId { get; set; }
 
@@ -95,11 +95,11 @@ internal class GitCommitExample
 
 internal enum CommitMode
 {
-    [ArgsHasParameter("-a|--all", Description = "Stage all modifications and deletions automatically")]
+    [ArgsValue("-a|--all", Description = "Stage all modifications and deletions automatically")]
     A,
-    [ArgsHasParameter("--interactive", Description = "Interactively select which changes to include")]
+    [ArgsValue("--interactive", Description = "Interactively select which changes to include")]
     Interactive,
-    [ArgsHasParameter("-p|--patch", Description = "Use the interactive patch selection interface to choose hunks")]
+    [ArgsValue("-p|--patch", Description = "Use the interactive patch selection interface to choose hunks")]
     Patch
 }
 
@@ -124,8 +124,8 @@ internal enum CleanupMode
 
 internal enum IncludeOnly
 {
-    [ArgsHasParameter("-i", Description = "Include specified files in the commit")]
+    [ArgsValue("-i", Description = "Include specified files in the commit")]
     Include,
-    [ArgsHasParameter("-o", Description = "Only commit specified files, ignoring staged content")]
+    [ArgsValue("-o", Description = "Only commit specified files, ignoring staged content")]
     Only
 }
