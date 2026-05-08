@@ -1,8 +1,7 @@
-using ArgsToConfig.Attributes;
 using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
-namespace ArgsToConfig.UnitTests;
+namespace ArgsToConfig.UnitTests.Tests;
 
 [TestFixture]
 public class ToArgsStringTests

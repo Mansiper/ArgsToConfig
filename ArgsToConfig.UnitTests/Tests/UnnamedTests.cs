@@ -1,7 +1,7 @@
 using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
-namespace ArgsToConfig.UnitTests;
+namespace ArgsToConfig.UnitTests.Tests;
 
 // mv [-x] old_path [-y] new_path [-z]
 

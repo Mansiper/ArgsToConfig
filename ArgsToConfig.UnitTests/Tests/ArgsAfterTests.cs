@@ -1,7 +1,7 @@
 using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
-namespace ArgsToConfig.UnitTests;
+namespace ArgsToConfig.UnitTests.Tests;
 
 // deploy [--fast] [--config <file>] <version>
 

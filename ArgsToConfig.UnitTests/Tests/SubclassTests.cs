@@ -1,7 +1,7 @@
 using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
-namespace ArgsToConfig.UnitTests;
+namespace ArgsToConfig.UnitTests.Tests;
 
 // app connect - u user - p pass run
 

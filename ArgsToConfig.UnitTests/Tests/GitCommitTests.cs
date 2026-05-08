@@ -1,7 +1,7 @@
 using ArgsToConfig.UnitTests.Examples;
 using FluentAssertions;
 
-namespace ArgsToConfig.UnitTests;
+namespace ArgsToConfig.UnitTests.Tests;
 
 /*
 git commit [-a | --interactive | --patch] [-s] [-v] [-u[<mode>]] [--amend]
