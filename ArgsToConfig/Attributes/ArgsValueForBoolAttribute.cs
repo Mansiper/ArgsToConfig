@@ -1,4 +1,7 @@
-﻿namespace ArgsToConfig.Attributes;
+﻿// Copyright (c) 2026 Pavel Razboynikov
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
+namespace ArgsToConfig.Attributes;
 
 /// <summary>
 /// Specifies two distinct argument values: one that maps to <see langword="true"/> and one that maps to <see langword="false"/>.
@@ -11,6 +14,7 @@ public class ArgsValueForBoolAttribute : Attribute
     private readonly string trueName;
     private readonly string falseName;
     
+    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
     public ArgsValueForBoolAttribute(string trueName, string falseName) =>

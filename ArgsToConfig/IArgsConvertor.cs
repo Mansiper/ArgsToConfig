@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Pavel Razboynikov
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 namespace ArgsToConfig;
 
 /// <summary>
@@ -5,5 +8,10 @@ namespace ArgsToConfig;
 /// </summary>
 public interface IArgsConvertor
 {
+    /// <summary>
+    /// Converts the raw command-line string <paramref name="value"/> to the target type.
+    /// </summary>
+    /// <param name="value">The raw string value taken from the command-line arguments.</param>
+    /// <returns>The converted value as <see cref="object"/>.</returns>
     object Convert(string value);
 }

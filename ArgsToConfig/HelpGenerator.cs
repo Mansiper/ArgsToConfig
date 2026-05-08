@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Pavel Razboynikov
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 using ArgsToConfig.Attributes;
 using System.Reflection;
 using System.Text;

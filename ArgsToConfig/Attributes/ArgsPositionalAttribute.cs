@@ -1,4 +1,7 @@
-﻿namespace ArgsToConfig.Attributes;
+﻿// Copyright (c) 2026 Pavel Razboynikov
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
+namespace ArgsToConfig.Attributes;
 
 /// <summary>
 /// Specifies the position (zero-based) of a positional argument for the field or property it is applied to.
@@ -10,9 +13,10 @@ public class ArgsPositionalAttribute : Attribute
 {
     private readonly int position;
 
+    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
-    public ArgsPositionalAttribute(int position) => 
+    public ArgsPositionalAttribute(int position) =>
         this.position = position;
 
     internal int GetPosition => position;

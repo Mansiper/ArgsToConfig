@@ -1,4 +1,7 @@
-﻿namespace ArgsToConfig.Attributes;
+﻿// Copyright (c) 2026 Pavel Razboynikov
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
+namespace ArgsToConfig.Attributes;
 
 /// <summary>
 /// Indicates that the field or property it is applied to must be assigned a value only after all the fields specified in the attribute parameters have been assigned.
@@ -9,9 +12,10 @@
 public class ArgsAfterAttribute : Attribute
 {
     private readonly string[] fields;
+    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
-    public ArgsAfterAttribute(params string[] fields) => 
+    public ArgsAfterAttribute(params string[] fields) =>
         this.fields = fields;
 
     internal string[] GetFields => fields;
