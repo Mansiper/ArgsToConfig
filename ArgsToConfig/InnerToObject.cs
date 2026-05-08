@@ -116,7 +116,8 @@ internal static class InnerToObject
                 IsExistingOnlyFile = isExistingOnlyFile,
                 IsExistingOnlyDirectory = isExistingOnlyDirectory,
                 IsLegalFileNamesOnly = isLegalFileNamesOnly,
-                AcceptFromAmong = acceptFromAmong?.GetValues
+                AcceptFromAmong = acceptFromAmong?.GetValues,
+                EnvVar = hasParam?.EnvVar ?? valueFor?.EnvVar ?? argsEnum?.EnvVar
             });
         }
 
@@ -633,6 +634,66 @@ internal static class InnerToObject
             colRule.Property.SetValue(obj, finalValue);
         }
 
+        // ── Environment variable fallback ─────────────────────────────────────
+        var envVarRules = rules.Where(r => r.EnvVar is not null && !setFieldNames.Contains(r.Property.Name)).ToList();
+        if (envVarRules.Count > 0)
+        {
+            var dotEnv = LoadDotEnv();
+            foreach (var rule in envVarRules)
+            {
+                var envValue = Environment.GetEnvironmentVariable(rule.EnvVar!)
+                    ?? dotEnv.GetValueOrDefault(rule.EnvVar!);
+                if (envValue is null)
+                    continue;
+
+                var propType2 = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
+
+                // ArgsHasParameter: treat env var value as a bool (true/false/1/0 or empty = false)
+                if (rule.HasParameterNames is not null && rule.ValueForNames is null && rule.EnumMemberRules is null)
+                {
+                    if (propType2 != typeof(bool))
+                        continue;
+                    var boolResult = !string.IsNullOrEmpty(envValue) && envValue is "1" or "true" or "True" or "TRUE";
+                    var eb = SetTracked(rule.Property, boolResult, -1);
+                    if (eb is not null) return (eb, null);
+                    continue;
+                }
+
+                // ArgsEnum: match enum members
+                if (rule is { IsEnum: true, EnumMemberRules: not null })
+                {
+                    var enumMatched = false;
+                    foreach (var mr in rule.EnumMemberRules)
+                    {
+                        var memberValue = mr.ArgsValue ?? mr.Value.ToString()!;
+                        if (!string.Equals(memberValue, envValue, StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        var ee = SetTracked(rule.Property, mr.Value, -1);
+                        if (ee is not null) return (ee, null);
+                        enumMatched = true;
+                        break;
+                    }
+                    if (!enumMatched)
+                        return ($"Invalid value '{envValue}' for environment variable '{rule.EnvVar}'.", null);
+                    continue;
+                }
+
+                // ArgsValueFor: convert normally
+                try
+                {
+                    if (propType2 == typeof(string))
+                        ValidatePathConstraints(rule, envValue);
+                    var converted = ConvertValue(envValue, propType2);
+                    var ev = SetTracked(rule.Property, converted, -1);
+                    if (ev is not null) return (ev, null);
+                }
+                catch (Exception ex)
+                {
+                    return (ex.Message, null);
+                }
+            }
+        }
+
         // ── Post-processing: one pass over rules ─────────────────────────────
         var positionalValues = new HashSet<string>(positionalArgs.Select(p => p.value), StringComparer.OrdinalIgnoreCase);
         foreach (var rule in rules)
@@ -853,7 +914,7 @@ internal static class InnerToObject
                 foreach (var required in rule.IfSetFields)
                     if (!setFieldNames.Contains(required))
                     {
-                        var ifSetPos = consumedAt.TryGetValue(name, out var pos) ? pos : 0;
+                        var ifSetPos = consumedAt.GetValueOrDefault(name, 0);
                         return ($"Property '{name}' requires '{required}' to be set.", ifSetPos);
                     }
             }
@@ -1152,5 +1213,39 @@ internal static class InnerToObject
         foreach (var item in items)
             addMethod.Invoke(instance, [item]);
         return instance;
+    }
+
+    /// <summary>
+    /// Loads key=value pairs from a <c>.env</c> file in the current working directory.
+    /// Lines starting with <c>#</c> and blank lines are ignored.
+    /// Values may optionally be wrapped in single or double quotes.
+    /// </summary>
+    internal static Dictionary<string, string> LoadDotEnv(string? path = null)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        var filePath = path ?? Path.Combine(Directory.GetCurrentDirectory(), ".env");
+        if (!File.Exists(filePath))
+            return result;
+
+        foreach (var rawLine in File.ReadLines(filePath))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith('#'))
+                continue;
+
+            var eq = line.IndexOf('=');
+            if (eq <= 0)
+                continue;
+
+            var key = line[..eq].Trim();
+            var val = line[(eq + 1)..].Trim();
+
+            // Strip surrounding quotes
+            if (val.Length >= 2 && ((val[0] == '"' && val[^1] == '"') || (val[0] == '\'' && val[^1] == '\'')))
+                val = val[1..^1];
+
+            result[key] = val;
+        }
+        return result;
     }
 }

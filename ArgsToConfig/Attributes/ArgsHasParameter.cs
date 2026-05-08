@@ -12,6 +12,7 @@ public class ArgsHasParameterAttribute : Attribute
     private readonly int position;
 
     public string? Description { get; set; }
+    public string? EnvVar { get; set; }
 
     public ArgsHasParameterAttribute(string name, int position = -1) => 
         (this.name, this.position) = (name, position);

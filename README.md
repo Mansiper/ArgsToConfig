@@ -108,7 +108,44 @@ Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) 
 
 ---
 
-## Examples
+## Environment variable fallback
+
+`[ArgsValueFor]`, `[ArgsHasParameter]`, and `[ArgsEnum]` all accept an optional `EnvVar` property.  
+When the named CLI argument is **not present**, the library looks up the environment variable and uses its value as a fallback.  
+A command-line argument always takes precedence over an environment variable.
+
+```csharp
+class AppConfig
+{
+    // Falls back to $APP_OUTPUT when --output is absent
+    [ArgsValueFor("--output", EnvVar = "APP_OUTPUT")]
+    public string? Output { get; set; }
+
+    // Falls back to $APP_VERBOSE; accepts "1"/"true" (case-insensitive) → true, anything else → false, empty → false
+    [ArgsHasParameter("--verbose", EnvVar = "APP_VERBOSE")]
+    public bool Verbose { get; set; }
+
+    // Falls back to $APP_FORMAT; value must match one of the [ArgsValue] strings on the enum members
+    [ArgsEnum("--format", EnvVar = "APP_FORMAT")]
+    public OutputFormat? Format { get; set; }
+}
+```
+
+### `.env` file support
+
+The library automatically reads a `.env` file from the **current working directory** when evaluating environment variable fallbacks.  
+Standard `.env` syntax is supported: `KEY=value`, optional surrounding quotes (`"..."` or `'...'`), `#` comment lines, and blank lines.
+
+```
+# .env
+APP_OUTPUT=/tmp/output
+APP_VERBOSE=1
+APP_FORMAT=json
+```
+
+`.env` values have lower priority than real environment variables: if both define the same key, the real environment variable wins.
+
+
 
 ### Flags and values
 

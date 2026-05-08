@@ -13,6 +13,7 @@ public class ArgsEnumAttribute : Attribute
 
     public string? DefaultValue { get; set; }
     public string? Description { get; set; }
+    public string? EnvVar { get; set; }
 
     public ArgsEnumAttribute() { }
 

@@ -66,4 +66,7 @@ internal sealed class PropertyRule
 
     // ArgsAcceptFromAmong
     public string[]? AcceptFromAmong { get; init; }
+
+    // EnvVar fallback (set on ArgsValueFor, ArgsHasParameter, ArgsEnum)
+    public string? EnvVar { get; init; }
 }

@@ -15,6 +15,7 @@ public class ArgsValueForAttribute : Attribute
 
     public string? DefaultValue { get; set; }
     public string? Description { get; set; }
+    public string? EnvVar { get; set; }
 
     public ArgsValueForAttribute(string name, bool optional = false) =>
         (this.name, this.optional) = (name, optional);
