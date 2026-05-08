@@ -40,4 +40,34 @@ public class DoubleNestedTests
         errors.Should().NotBeNull();
         position.Should().Be(1);
     }
+
+    [Test]
+    public void FiveNestedLevels_ShouldSucceed()
+    {
+        // Arrange
+        var args = new[] { "level1", "level2", "level3", "level4", "level5", "--value", "somevalue" };
+
+        var expected = new FiveNestedExample
+        {
+            Level1 = new FiveNestedLevel1
+            {
+                Level2 = new FiveNestedLevel2
+                {
+                    Level3 = new FiveNestedLevel3
+                    {
+                        Level4 = new FiveNestedLevel4
+                        {
+                            Level5 = new FiveNestedLevel5 { Value = "somevalue" }
+                        }
+                    }
+                }
+            }
+        };
+
+        // Act
+        var (result, _, _) = ArgumentsReader.ToObject<FiveNestedExample>(args);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+    }
 }

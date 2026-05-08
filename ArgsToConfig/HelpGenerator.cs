@@ -41,17 +41,13 @@ public static class HelpGenerator
         // Class-level OneOf descriptions
         var oneOfs = type.GetCustomAttributes<ArgsOneOfAttribute>();
         foreach (var oneOf in oneOfs)
-        {
             if (oneOf.Description is not null)
                 sb.AppendLine($"Note: {oneOf.Description}");
-        }
 
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-        foreach (var prop in props)
-        {
+        foreach (var prop in props) 
             AppendPropertyHelp(sb, prop);
-        }
 
         return sb.ToString().TrimEnd();
     }
@@ -68,14 +64,14 @@ public static class HelpGenerator
         var argsPositional = prop.GetCustomAttribute<ArgsPositionalAttribute>();
         var argsIfSet = prop.GetCustomAttribute<ArgsIfSetAttribute>();
 
-        string? description = hasParam?.Description
-            ?? valueFor?.Description
-            ?? valueForBool?.Description
-            ?? argsEnum?.Description
-            ?? argsObject?.Description
-            ?? argsPipeline?.Description
-            ?? argsPathspec?.Description
-            ?? argsPositional?.Description;
+        var description = hasParam?.Description
+                          ?? valueFor?.Description
+                          ?? valueForBool?.Description
+                          ?? argsEnum?.Description
+                          ?? argsObject?.Description
+                          ?? argsPipeline?.Description
+                          ?? argsPathspec?.Description
+                          ?? argsPositional?.Description;
 
         if (description is null)
             return;

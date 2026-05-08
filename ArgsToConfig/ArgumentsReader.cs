@@ -4,6 +4,19 @@ namespace ArgsToConfig;
 
 public static class ArgumentsReader
 {
+    /// <summary>
+    /// Parses the given command-line arguments into an instance of <typeparamref name="T"/>.
+    /// </summary>
+    /// <typeparam name="T">The type to deserialize the arguments into. Must have a parameterless constructor.</typeparam>
+    /// <param name="args">The command-line arguments to parse.</param>
+    /// <returns>
+    /// A tuple containing:
+    /// <list type="bullet">
+    /// <item><description><c>result</c> — the populated object, or <see langword="default"/> if validation failed.</description></item>
+    /// <item><description><c>errors</c> — an array of error messages, or <see langword="null"/> if parsing succeeded.</description></item>
+    /// <item><description><c>position</c> — the index of the next unprocessed argument, or <see langword="null"/> if validation failed.</description></item>
+    /// </list>
+    /// </returns>
     public static (T? result, string[]? errors, int? position) ToObject<T>(params string[] args) where T : new()
     {
         CheckHelpVersion(args);
@@ -17,6 +30,13 @@ public static class ArgumentsReader
         return (obj, error is null ? null : [error], position + 1);
     }
 
+    /// <summary>
+    /// Serializes an instance of <typeparamref name="T"/> into an array of command-line argument strings.
+    /// </summary>
+    /// <typeparam name="T">The type to serialize. Must have a parameterless constructor.</typeparam>
+    /// <param name="obj">The object to serialize.</param>
+    /// <returns>An array of command-line argument strings representing the object's state.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="obj"/> is <see langword="null"/>.</exception>
     public static string[] ToArgs<T>(T obj) where T : new()
     {
         if (obj is null) throw new ArgumentNullException(nameof(obj));
@@ -39,12 +59,14 @@ public static class ArgumentsReader
 
     /// <summary>
     /// Optional callback for handling help requests.
-    /// Receives the subcommand name if specified (e.g. "myapp --help subcmd"), or null if no subcommand was specified (e.g. "myapp --help").
+    /// Receives the subcommand name if specified (e.g. <c>myapp --help subcmd</c>), or <see langword="null"/> if no subcommand was specified (e.g. <c>myapp --help</c>).
+    /// When set and a help flag is detected, the callback is invoked and the process exits.
     /// </summary>
     public static Func<string?, Task>? OnHelp { get; set; }
 
     /// <summary>
     /// Optional callback for handling version requests.
+    /// When set and a version flag (<c>--version</c> or <c>-v</c>) is detected, the callback is invoked and the process exits.
     /// </summary>
     public static Func<Task>? OnVersion { get; set; }
 

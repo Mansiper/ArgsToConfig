@@ -62,20 +62,58 @@ string synopsis = ArgumentsReader.ToArgsString<MyConfig>();
 ```
 
 `ToArgs<T>` reconstructs a `string[]` from a populated config object that can be passed back to any CLI parser.  
-`ToArgsString<T>()` returns a human-readable synopsis of the command-line interface in the style of `git commit [-a] [-m <message>]`.
+`ToArgsString<T>()` returns a human-readable synopsis of the command-line interface. For example, given:
+
+```csharp
+class AppConfig
+{
+    [ArgsHasParameter("-v|--verbose")]
+    public bool Verbose { get; set; }
+
+    [ArgsValueFor("-o|--output")]
+    public string? OutputPath { get; set; }
+
+    [ArgsValueFor("--format")]
+    public string? Format { get; set; }
+}
+```
+
+`ArgumentsReader.ToArgsString<AppConfig>()` produces:
+
+```
+-v|--verbose [-o|--output <outputpath>] [--format <format>]
+```
+
+Required arguments appear unbracketed; optional (nullable) ones are wrapped in `[…]`.
 
 ---
 
 ## Help generator
 
-`HelpGenerator` produces formatted help text from `Description` properties set on the attributes:
+`HelpGenerator` produces formatted help text from the `Description` property that can be set on each attribute, for example:
+
+```csharp
+[ArgsValueFor("--output", Description = "Path to the output directory")]
+public string? OutputPath { get; set; }
+```
+
+The text from every attribute's `Description` field is collected and formatted into a help string.
 
 ```csharp
 ArgumentsReader.OnHelp = async subcmd =>
 {
+    // subcmd is the subcommand name, or null for the root command
     Console.WriteLine(HelpGenerator.GetHelp<MyConfig>());
 };
+
+ArgumentsReader.OnVersion = async () =>
+{
+    Console.WriteLine("myapp 1.0.0");
+};
 ```
+
+`ArgumentsReader.OnHelp` is an `async` delegate invoked automatically when `--help` (or `-h`) is detected in the arguments. The `subcmd` parameter contains the active subcommand name, or `null` when at the root level.  
+`ArgumentsReader.OnVersion` is an `async` delegate invoked automatically when `--version` is detected.
 
 Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) to obtain the help string; the result is cached. Call `HelpGenerator.ClearCache()` to invalidate the cache.
 
@@ -95,7 +133,7 @@ Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) 
 | `[ArgsIfSet("prop1", "prop2", ...)]` | any property | the field can only be assigned a value if **all** specified fields are not `null` |
 | `[ArgsPathspec]` | `string[]` property | captures all arguments after `--` |
 | `[ArgsPositional(index)]` | any property | captures positional arguments by zero-based index |
-| `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand object when the named keyword is encountered; supports **classes, records, and structs**, including double nesting |
+| `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand object when the named keyword is encountered; supports **classes, records, and structs** with arbitrary nesting depth |
 | `[ArgsPipeline]` | any collection of an interface | collects an ordered sequence of pipeline command objects that all implement the property's element interface |
 | `[ArgsPipelineCommand("name")]` | class | registers a class as a named pipeline command; the class must implement the interface declared on the `[ArgsPipeline]` property |
 | `[ArgsTuple("div1", ...)]` | tuple property | splits a single argument value into the elements of a value tuple using the supplied dividers; supports a cyclic (default) and a per-part mode via `PartsDividers` |
@@ -256,7 +294,7 @@ class DiffConfig
 
 ### Subcommands (`[ArgsObject]`)
 
-The subcommand keyword is specified directly on `[ArgsObject]`. The sub-object can be a **class, record, or struct**, and nesting can go two levels deep.
+The subcommand keyword is specified directly on `[ArgsObject]`. The sub-object can be a **class, record, or struct**. Nesting depth is not artificially limited (verified working to at least 5 levels).
 
 ```csharp
 // app connect -u alice -p secret run
@@ -278,7 +316,7 @@ record ConnectionConfig
     [ArgsValueFor("-p")]
     public string Pass { get; set; } = null!;
 
-    // double nesting
+    // further nesting is supported
     [ArgsObject("tls")]
     public TlsConfig? Tls { get; set; }
 }
@@ -490,7 +528,7 @@ class AppConfig
 
 #### `[ArgsAcceptFromAmong]`
 
-Restricts the accepted values to a fixed set. Throws `ArgumentException` when the parsed value is not in the list. Works with both scalar and collection properties.
+Restricts the accepted values to a fixed set. When the parsed value is not in the list, an error is returned in the `errors` array (no exception is thrown). Works with both scalar and collection properties.
 
 ```csharp
 // myapp --format png

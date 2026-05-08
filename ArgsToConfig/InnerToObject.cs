@@ -589,49 +589,62 @@ internal static class InnerToObject
             else if (value is not null && IsCollectionProperty(rule.Property.PropertyType, out var elementType))
             {
                 // Multi-value collection: string[], T[], List<T>, HashSet<T>, etc.
-                try
+                if (elementType == typeof(string))
                 {
-                    if (elementType == typeof(string))
-                        ValidatePathConstraints(rule, value);
-                    var converted = rule.TupleDividers is not null && elementType.IsGenericType
-                        ? ConvertTupleValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers)
-                        : ConvertValue(value, elementType);
-                    if (!pendingCollections.TryGetValue(rule.Property.Name, out var pending))
-                        pending = (rule, [], flagIndex);
-                    pending.Items.Add(converted);
-                    pendingCollections[rule.Property.Name] = (pending.Rule, pending.Items, flagIndex);
-                    setFieldNames.Add(rule.Property.Name);
-                    consumedAt[rule.Property.Name] = flagIndex;
+                    var pathErr = ValidatePathConstraints(rule, value);
+                    if (pathErr is not null) return (pathErr, i);
                 }
-                catch (Exception ex)
+                object converted;
+                if (rule.TupleDividers is not null && elementType.IsGenericType)
                 {
-                    return (ex.Message, i);
+                    var (tupleErr, tupleResult) = ConvertTupleValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers);
+                    if (tupleErr is not null) return (tupleErr, i);
+                    converted = tupleResult!;
                 }
+                else
+                {
+                    var (convErr, convResult) = ConvertValue(value, elementType);
+                    if (convErr is not null) return (convErr, i);
+                    converted = convResult!;
+                }
+                if (!pendingCollections.TryGetValue(rule.Property.Name, out var pending))
+                    pending = (rule, [], flagIndex);
+                pending.Items.Add(converted);
+                pendingCollections[rule.Property.Name] = (pending.Rule, pending.Items, flagIndex);
+                setFieldNames.Add(rule.Property.Name);
+                consumedAt[rule.Property.Name] = flagIndex;
             }
             else if (value is not null)
             {
-                try
+                if (propType == typeof(string))
                 {
-                    if (propType == typeof(string))
-                        ValidatePathConstraints(rule, value);
-                    var converted = rule.TupleDividers is not null && propType.IsGenericType
-                        ? ConvertTupleValue(value, propType, rule.TupleDividers, rule.TuplePartsDividers)
-                        : ConvertValue(value, propType);
-                    var e1 = SetTracked(rule.Property, converted, flagIndex);
-                    if (e1 is not null) return (e1, flagIndex);
+                    var pathErr = ValidatePathConstraints(rule, value);
+                    if (pathErr is not null) return (pathErr, i);
                 }
-                catch (Exception ex)
+                object converted;
+                if (rule.TupleDividers is not null && propType.IsGenericType)
                 {
-                    return (ex.Message, i);
+                    var (tupleErr, tupleResult) = ConvertTupleValue(value, propType, rule.TupleDividers, rule.TuplePartsDividers);
+                    if (tupleErr is not null) return (tupleErr, i);
+                    converted = tupleResult!;
                 }
+                else
+                {
+                    var (convErr, convResult) = ConvertValue(value, propType);
+                    if (convErr is not null) return (convErr, i);
+                    converted = convResult!;
+                }
+                var e1 = SetTracked(rule.Property, converted, flagIndex);
+                if (e1 is not null) return (e1, flagIndex);
             }
         }
 
         // ── Finalize pending collections
         foreach (var (_, (colRule, items, _)) in pendingCollections)
         {
-            var finalValue = MaterializeCollection(colRule.Property.PropertyType, items);
-            colRule.Property.SetValue(obj, finalValue);
+            var (matErr, matResult) = MaterializeCollection(colRule.Property.PropertyType, items);
+            if (matErr is not null) return (matErr, null);
+            colRule.Property.SetValue(obj, matResult);
         }
 
         // ── Environment variable fallback ─────────────────────────────────────
@@ -679,17 +692,16 @@ internal static class InnerToObject
                 }
 
                 // ArgsValueFor: convert normally
-                try
                 {
                     if (propType2 == typeof(string))
-                        ValidatePathConstraints(rule, envValue);
-                    var converted = ConvertValue(envValue, propType2);
-                    var ev = SetTracked(rule.Property, converted, -1);
+                    {
+                        var pathErr = ValidatePathConstraints(rule, envValue);
+                        if (pathErr is not null) return (pathErr, null);
+                    }
+                    var (convErr, convResult) = ConvertValue(envValue, propType2);
+                    if (convErr is not null) return (convErr, null);
+                    var ev = SetTracked(rule.Property, convResult!, -1);
                     if (ev is not null) return (ev, null);
-                }
-                catch (Exception ex)
-                {
-                    return (ex.Message, null);
                 }
             }
         }
@@ -766,17 +778,15 @@ internal static class InnerToObject
                         var preRule = implicitAfterFields[pi]!;
                         var (pidx, pval) = availablePositionals[pi];
                         var prePropType = Nullable.GetUnderlyingType(preRule.Property.PropertyType) ?? preRule.Property.PropertyType;
-                        try
+                        if (prePropType == typeof(string))
                         {
-                            if (prePropType == typeof(string))
-                                ValidatePathConstraints(preRule, pval);
-                            var e9 = SetTracked(preRule.Property, ConvertValue(pval, prePropType), pidx);
-                                if (e9 is not null) return (e9, pidx);
+                            var pathErr = ValidatePathConstraints(preRule, pval);
+                            if (pathErr is not null) return (pathErr, pidx);
                         }
-                        catch (Exception ex)
-                        {
-                            return (ex.Message, pidx);
-                        }
+                        var (convErr, convResult) = ConvertValue(pval, prePropType);
+                        if (convErr is not null) return (convErr, pidx);
+                        var e9 = SetTracked(preRule.Property, convResult!, pidx);
+                        if (e9 is not null) return (e9, pidx);
                     }
                 }
 
@@ -804,17 +814,15 @@ internal static class InnerToObject
                             return ($"Field '{fieldName}' cannot be changed after '{rule.Property.Name}' has been assigned ([ArgsAfter]).", candidate.index);
 
                     var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
-                    try
+                    if (propType == typeof(string))
                     {
-                        if (propType == typeof(string))
-                            ValidatePathConstraints(rule, candidate.value);
-                        var e10 = SetTracked(rule.Property, ConvertValue(candidate.value, propType), candidate.index);
-                            if (e10 is not null) return (e10, candidate.index);
+                        var pathErr = ValidatePathConstraints(rule, candidate.value);
+                        if (pathErr is not null) return (pathErr, candidate.index);
                     }
-                    catch (Exception ex)
-                    {
-                        return (ex.Message, candidate.index);
-                    }
+                    var (convErr, convResult) = ConvertValue(candidate.value, propType);
+                    if (convErr is not null) return (convErr, candidate.index);
+                    var e10 = SetTracked(rule.Property, convResult!, candidate.index);
+                    if (e10 is not null) return (e10, candidate.index);
                 }
             }
         }
@@ -850,17 +858,15 @@ internal static class InnerToObject
                 var epRule = explicitPositionalRules[pi];
                 var (pidx, pval) = unconsumedPositionals[pi];
                 var propType = Nullable.GetUnderlyingType(epRule.Property.PropertyType) ?? epRule.Property.PropertyType;
-                try
+                if (propType == typeof(string))
                 {
-                    if (propType == typeof(string))
-                        ValidatePathConstraints(epRule, pval);
-                    var e11 = SetTracked(epRule.Property, ConvertValue(pval, propType), pidx);
-                    if (e11 is not null) return (e11, pidx);
+                    var pathErr = ValidatePathConstraints(epRule, pval);
+                    if (pathErr is not null) return (pathErr, pidx);
                 }
-                catch (Exception ex)
-                {
-                    return (ex.Message, pidx);
-                }
+                var (convErr, convResult) = ConvertValue(pval, propType);
+                if (convErr is not null) return (convErr, pidx);
+                var e11 = SetTracked(epRule.Property, convResult!, pidx);
+                if (e11 is not null) return (e11, pidx);
             }
 
         }
@@ -873,17 +879,15 @@ internal static class InnerToObject
             var ipRule = implicitRules[pi];
             var (pidx, pval) = remainingPositionals[pi];
             var propType = Nullable.GetUnderlyingType(ipRule.Property.PropertyType) ?? ipRule.Property.PropertyType;
-            try
+            if (propType == typeof(string))
             {
-                if (propType == typeof(string))
-                    ValidatePathConstraints(ipRule, pval);
-                var e12 = SetTracked(ipRule.Property, ConvertValue(pval, propType), pidx);
+                var pathErr = ValidatePathConstraints(ipRule, pval);
+                if (pathErr is not null) return (pathErr, pidx);
+            }
+            var (convErr, convResult) = ConvertValue(pval, propType);
+            if (convErr is not null) return (convErr, pidx);
+            var e12 = SetTracked(ipRule.Property, convResult!, pidx);
             if (e12 is not null) return (e12, pidx);
-            }
-            catch (Exception ex)
-            {
-                return (ex.Message, pidx);
-            }
         }
 
         // ── Remaining validation
@@ -1023,7 +1027,7 @@ internal static class InnerToObject
         }
     }
 
-    private static object ConvertTupleValue(string raw, Type tupleType, string[] dividers, bool partsDividers)
+    private static (string? error, object? result) ConvertTupleValue(string raw, Type tupleType, string[] dividers, bool partsDividers)
     {
         if (raw is ['"', _, ..] && raw[^1] == '"')
             raw = raw[1..^1];
@@ -1038,7 +1042,7 @@ internal static class InnerToObject
                 var divider = dividers[i];
                 var idx = remaining.IndexOf(divider, StringComparison.Ordinal);
                 if (idx < 0)
-                    throw new ArgumentException($"Expected divider '{divider}' in value '{raw}'.");
+                    return ($"Expected divider '{divider}' in value '{raw}'.", null);
                 parts[i] = remaining[..idx];
                 remaining = remaining[(idx + divider.Length)..];
             }
@@ -1057,7 +1061,7 @@ internal static class InnerToObject
                     }
                 }
                 if (bestIdx < 0)
-                    throw new ArgumentException($"Expected one of dividers [{string.Join(", ", dividers.Select(d => $"'{d}'"))}] in value '{raw}'.");
+                    return ($"Expected one of dividers [{string.Join(", ", dividers.Select(d => $"'{d}'"))}] in value '{raw}'.", null);
                 parts[i] = remaining[..bestIdx];
                 remaining = remaining[(bestIdx + bestDivider.Length)..];
             }
@@ -1066,12 +1070,16 @@ internal static class InnerToObject
 
         var values = new object[typeArgs.Length];
         for (var i = 0; i < typeArgs.Length; i++)
-            values[i] = ConvertValue(parts[i], typeArgs[i]);
+        {
+            var (convErr, convResult) = ConvertValue(parts[i], typeArgs[i]);
+            if (convErr is not null) return (convErr, null);
+            values[i] = convResult!;
+        }
 
-        return Activator.CreateInstance(tupleType, values)!;
+        return (null, Activator.CreateInstance(tupleType, values)!);
     }
 
-    private static object ConvertValue(string raw, Type targetType)
+    private static (string? error, object? result) ConvertValue(string raw, Type targetType)
     {
         // Strip surrounding quotes
         if (raw is ['"', _, ..] && raw[^1] == '"')
@@ -1080,38 +1088,38 @@ internal static class InnerToObject
         try
         {
             if (targetType == typeof(string))
-                return raw;
+                return (null, raw);
             if (targetType == typeof(bool))
-                return bool.Parse(raw);
+                return (null, bool.Parse(raw));
             if (targetType == typeof(int))
-                return int.Parse(raw);
+                return (null, int.Parse(raw));
             if (targetType == typeof(DateTime))
-                return DateTime.Parse(raw);
+                return (null, DateTime.Parse(raw));
             if (targetType == typeof(DateOnly))
-                return DateOnly.Parse(raw);
+                return (null, DateOnly.Parse(raw));
             if (targetType == typeof(TimeOnly))
-                return TimeOnly.Parse(raw);
+                return (null, TimeOnly.Parse(raw));
             if (targetType == typeof(TimeSpan))
-                return TimeSpan.Parse(raw);
+                return (null, TimeSpan.Parse(raw));
             if (targetType == typeof(Guid))
-                return Guid.Parse(raw);
+                return (null, Guid.Parse(raw));
             if (targetType == typeof(Uri))
-                return new Uri(raw);
+                return (null, new Uri(raw));
             if (targetType == typeof(FileInfo))
-                return new FileInfo(raw);
+                return (null, new FileInfo(raw));
             if (targetType == typeof(DirectoryInfo))
-                return new DirectoryInfo(raw);
+                return (null, new DirectoryInfo(raw));
             if (targetType == typeof(System.Net.IPAddress))
-                return System.Net.IPAddress.Parse(raw);
+                return (null, System.Net.IPAddress.Parse(raw));
             if (targetType == typeof(Version))
-                return Version.Parse(raw);
+                return (null, Version.Parse(raw));
             if (targetType.IsEnum)
-                return Enum.Parse(targetType, raw, ignoreCase: true);
-            return Convert.ChangeType(raw, targetType);
+                return (null, Enum.Parse(targetType, raw, ignoreCase: true));
+            return (null, Convert.ChangeType(raw, targetType));
         }
-        catch (Exception ex) when (ex is FormatException or OverflowException or ArgumentException)
+        catch (Exception ex) when (ex is FormatException or OverflowException or ArgumentException or UriFormatException)
         {
-            throw new ArgumentException($"Invalid value '{raw}' for type '{targetType.Name}'.", ex);
+            return ($"Invalid value '{raw}' for type '{targetType.Name}'.", null);
         }
     }
 
@@ -1143,7 +1151,7 @@ internal static class InnerToObject
         return false;
     }
 
-    private static object MaterializeCollection(Type propType, List<object> items)
+    private static (string? error, object? result) MaterializeCollection(Type propType, List<object> items)
     {
         var underlying = Nullable.GetUnderlyingType(propType) ?? propType;
 
@@ -1154,11 +1162,11 @@ internal static class InnerToObject
             var array = Array.CreateInstance(elementType, items.Count);
             for (var i = 0; i < items.Count; i++)
                 array.SetValue(items[i], i);
-            return array;
+            return (null, array);
         }
 
         if (!underlying.IsGenericType)
-            throw new InvalidOperationException($"Cannot materialize collection for type '{propType.Name}'.");
+            return ($"Cannot materialize collection for type '{propType.Name}'.", null);
 
         var typeArg = underlying.GetGenericArguments()[0];
         var def = underlying.GetGenericTypeDefinition();
@@ -1177,42 +1185,43 @@ internal static class InnerToObject
         return FillCollection(underlying, typeArg, items);
     }
 
-    private static void ValidatePathConstraints(PropertyRule rule, string value)
+    private static string? ValidatePathConstraints(PropertyRule rule, string value)
     {
         if (rule.IsExistingOnlyFile)
         {
             if (!File.Exists(value))
-                throw new ArgumentException($"File '{value}' does not exist (property '{rule.Property.Name}').");
+                return $"File '{value}' does not exist (property '{rule.Property.Name}').";
         }
         if (rule.IsExistingOnlyDirectory)
         {
             if (!Directory.Exists(value))
-                throw new ArgumentException($"Directory '{value}' does not exist (property '{rule.Property.Name}').");
+                return $"Directory '{value}' does not exist (property '{rule.Property.Name}').";
         }
         if (rule.IsLegalFileNamesOnly)
         {
             var invalidChars = Path.GetInvalidFileNameChars();
             if (value.IndexOfAny(invalidChars) >= 0)
-                throw new ArgumentException($"Value '{value}' contains illegal file name characters (property '{rule.Property.Name}').");
+                return $"Value '{value}' contains illegal file name characters (property '{rule.Property.Name}').";
         }
         if (rule.AcceptFromAmong is not null)
         {
             if (!rule.AcceptFromAmong.Contains(value, StringComparer.OrdinalIgnoreCase))
-                throw new ArgumentException($"Value '{value}' is not accepted for property '{rule.Property.Name}'. Accepted values: {string.Join(", ", rule.AcceptFromAmong)}.");
+                return $"Value '{value}' is not accepted for property '{rule.Property.Name}'. Accepted values: {string.Join(", ", rule.AcceptFromAmong)}.";
         }
+        return null;
     }
 
-    private static object FillCollection(Type collectionType, Type elementType, List<object> items)
+    private static (string? error, object? result) FillCollection(Type collectionType, Type elementType, List<object> items)
     {
         var instance = Activator.CreateInstance(collectionType)!;
         var addMethod = typeof(ICollection<>).MakeGenericType(elementType).GetMethod("Add")
             ?? collectionType.GetMethod("Add", [elementType])
             ?? collectionType.GetMethod("Enqueue", [elementType]);
         if (addMethod is null)
-            throw new InvalidOperationException($"Cannot find Add/Enqueue method on '{collectionType.Name}'.");
+            return ($"Cannot find Add/Enqueue method on '{collectionType.Name}'.", null);
         foreach (var item in items)
             addMethod.Invoke(instance, [item]);
-        return instance;
+        return (null, instance);
     }
 
     /// <summary>
