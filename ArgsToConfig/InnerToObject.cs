@@ -949,11 +949,16 @@ internal static class InnerToObject
             if (rule.IfSetFields is not null && setFieldNames.Contains(name))
             {
                 foreach (var required in rule.IfSetFields)
-                    if (!setFieldNames.Contains(required))
+                {
+                    var requiredRule = rules.FirstOrDefault(r => r.Property.Name == required);
+                    var requiredValue = requiredRule?.Property.GetValue(obj);
+                    var isSet = requiredValue is not null;
+                    if (!isSet)
                     {
                         var ifSetPos = consumedAt.GetValueOrDefault(name, 0);
                         return ($"Property '{name}' requires '{required}' to be set.", ifSetPos);
                     }
+                }
             }
         }
 
