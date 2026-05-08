@@ -6,7 +6,19 @@ namespace ArgsToConfig;
 
 internal static class InnerToObject
 {
+    private static readonly Dictionary<Type, List<PropertyRule>> RulesCache = new();
+
     internal static List<PropertyRule> BuildRules(Type type)
+    {
+        if (!RulesCache.TryGetValue(type, out var rules))
+        {
+            rules = BuildRulesCore(type);
+            RulesCache[type] = rules;
+        }
+        return rules;
+    }
+
+    private static List<PropertyRule> BuildRulesCore(Type type)
     {
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
         var rules = new List<PropertyRule>(props.Length);
@@ -67,7 +79,7 @@ internal static class InnerToObject
             EnumMemberRule[]? enumMemberRules = null;
             if (isEnum)
             {
-                var enumType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+                var enumType = UnwrapNullable(prop.PropertyType);
                 if (enumType.IsEnum)
                 {
                     var members = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
@@ -150,10 +162,8 @@ internal static class InnerToObject
             var subRulesCache = new Dictionary<Type, List<PropertyRule>>();
             foreach (var (subcmdName2, subRule) in subcmdMap)
             {
-                var subType2 = Nullable.GetUnderlyingType(subRule.Property.PropertyType) ?? subRule.Property.PropertyType;
-                if (!subRulesCache.ContainsKey(subType2))
-                    subRulesCache[subType2] = BuildRules(subType2);
-                var subArgNames2 = BuildKnownArgNames(subRulesCache[subType2]);
+                var subType2 = UnwrapNullable(subRule.Property.PropertyType);
+                var subArgNames2 = BuildKnownArgNames(GetOrBuildRules(subRulesCache, subType2));
                 var conflicts2 = parentArgNames.Intersect(subArgNames2, StringComparer.OrdinalIgnoreCase).ToList();
                 if (conflicts2.Count > 0)
                 {
@@ -192,11 +202,9 @@ internal static class InnerToObject
             // Apply each subcommand segment
             foreach (var (segRule, segArgs) in segments)
             {
-                var subType = Nullable.GetUnderlyingType(segRule.Property.PropertyType) ?? segRule.Property.PropertyType;
+                var subType = UnwrapNullable(segRule.Property.PropertyType);
                 var subObj = Activator.CreateInstance(subType)!;
-                if (!subRulesCache.ContainsKey(subType))
-                    subRulesCache[subType] = BuildRules(subType);
-                var subRules = subRulesCache[subType];
+                var subRules = GetOrBuildRules(subRulesCache, subType);
                 var (subErr, subPos) = ApplyRules(subObj, subRules, segArgs.ToArray());
                 if (subErr is not null) return (subErr, subPos);
                 segRule.Property.SetValue(obj, subObj);
@@ -336,9 +344,7 @@ internal static class InnerToObject
                         i2++;
                     }
                     var cmdObj = Activator.CreateInstance(cmdEntry.Type)!;
-                    if (!cmdRulesCache.ContainsKey(cmdEntry.Type))
-                        cmdRulesCache[cmdEntry.Type] = BuildRules(cmdEntry.Type);
-                    var cmdRules = cmdRulesCache[cmdEntry.Type];
+                    var cmdRules = GetOrBuildRules(cmdRulesCache, cmdEntry.Type);
                     var (cmdErr, cmdPos) = ApplyRules(cmdObj, cmdRules, cmdArgsList.ToArray());
                     if (cmdErr is not null) return (cmdErr, cmdPos);
                     pipelineCommands[cmdEntry.PipelineRule].Add(cmdObj);
@@ -522,7 +528,7 @@ internal static class InnerToObject
             // ── ArgsHasParameter (bool flag) ──────────────────────────────────
             if (member is null && rule.ValueForNames is null)
             {
-                if ((Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType) == typeof(bool))
+                if (UnwrapNullable(rule.Property.PropertyType) == typeof(bool))
                 {
                     var e3 = SetTracked(rule.Property, true, i);
                     if (e3 is not null) return (e3, i);
@@ -555,11 +561,10 @@ internal static class InnerToObject
                     return ($"Argument '{key}' requires a value but none was provided.", flagIndex);
             }
 
-            var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
+            var propType = UnwrapNullable(rule.Property.PropertyType);
 
             if (rule is { IsEnum: true, EnumMemberRules: not null })
             {
-                if (value is not null)
                 {
                     var enumMatched = false;
                     foreach (var mr in rule.EnumMemberRules)
@@ -596,7 +601,7 @@ internal static class InnerToObject
                 // Multi-value collection: string[], T[], List<T>, HashSet<T>, etc.
                 if (elementType == typeof(string))
                 {
-                    var pathErr = ValidatePathConstraints(rule, value);
+                    var pathErr = ValidateValueConstraints(rule, value);
                     if (pathErr is not null) return (pathErr, i);
                 }
                 object converted;
@@ -623,7 +628,7 @@ internal static class InnerToObject
             {
                 if (propType == typeof(string))
                 {
-                    var pathErr = ValidatePathConstraints(rule, value);
+                    var pathErr = ValidateValueConstraints(rule, value);
                     if (pathErr is not null) return (pathErr, i);
                 }
                 object converted;
@@ -664,7 +669,7 @@ internal static class InnerToObject
                 if (envValue is null)
                     continue;
 
-                var propType2 = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
+                var propType2 = UnwrapNullable(rule.Property.PropertyType);
 
                 // ArgsHasParameter: treat env var value as a bool (true/false/1/0 or empty = false)
                 if (rule.HasParameterNames is not null && rule.ValueForNames is null && rule.EnumMemberRules is null)
@@ -701,7 +706,7 @@ internal static class InnerToObject
                 {
                     if (propType2 == typeof(string))
                     {
-                        var pathErr = ValidatePathConstraints(rule, envValue);
+                        var pathErr = ValidateValueConstraints(rule, envValue);
                         if (pathErr is not null) return (pathErr, null);
                     }
                     var (convErr, convResult) = ConvertValue(envValue, propType2);
@@ -742,7 +747,7 @@ internal static class InnerToObject
                 && (rule.HasParameterPosition >= 0
                     || (rule.HasParameterPosition < 0 && rule.HasParameterNames.Any(n => !n.StartsWith('-')))))
             {
-                var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
+                var propType = UnwrapNullable(rule.Property.PropertyType);
                 if (propType == typeof(bool)
                     && rule.HasParameterNames.Any(positionalValues.Contains))
                 {
@@ -755,20 +760,21 @@ internal static class InnerToObject
             if (!setFieldNames.Contains(name)
                 && rule is { IsEnum: true, EnumMemberRules: not null, ValueForNames: null })
             {
+                var matched = false;
                 foreach (var positional in positionalArgs)
                 {
                     foreach (var mr in rule.EnumMemberRules)
                     {
                         if (mr.ArgsValue is null) continue;
-                        var matched = mr.ArgsValue.Any(v => !v.Trim().StartsWith('-')
-                                   && string.Equals(v.Trim(), positional.value, StringComparison.OrdinalIgnoreCase));
-                        if (!matched) continue;
+                        if (!mr.ArgsValue.Any(v => !v.Trim().StartsWith('-')
+                               && string.Equals(v.Trim(), positional.value, StringComparison.OrdinalIgnoreCase))) continue;
                         var ep = SetTracked(rule.Property, mr.Value, positional.index);
                         if (ep is not null) return (ep, positional.index);
-                        goto nextRule;
+                        matched = true;
+                        break;
                     }
+                    if (matched) break;
                 }
-                nextRule:;
             }
 
             // ArgsPathspec
@@ -804,10 +810,10 @@ internal static class InnerToObject
                     {
                         var preRule = implicitAfterFields[pi]!;
                         var (pidx, pval) = availablePositionals[pi];
-                        var prePropType = Nullable.GetUnderlyingType(preRule.Property.PropertyType) ?? preRule.Property.PropertyType;
+                        var prePropType = UnwrapNullable(preRule.Property.PropertyType);
                         if (prePropType == typeof(string))
                         {
-                            var pathErr = ValidatePathConstraints(preRule, pval);
+                            var pathErr = ValidateValueConstraints(preRule, pval);
                             if (pathErr is not null) return (pathErr, pidx);
                         }
                         var (convErr, convResult) = ConvertValue(pval, prePropType);
@@ -840,10 +846,10 @@ internal static class InnerToObject
                         if (consumedAt.TryGetValue(fieldName, out var fieldIdx) && fieldIdx > candidate.index)
                             return ($"Field '{fieldName}' cannot be changed after '{rule.Property.Name}' has been assigned ([ArgsAfter]).", candidate.index);
 
-                    var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
+                    var propType = UnwrapNullable(rule.Property.PropertyType);
                     if (propType == typeof(string))
                     {
-                        var pathErr = ValidatePathConstraints(rule, candidate.value);
+                        var pathErr = ValidateValueConstraints(rule, candidate.value);
                         if (pathErr is not null) return (pathErr, candidate.index);
                     }
                     var (convErr, convResult) = ConvertValue(candidate.value, propType);
@@ -884,10 +890,10 @@ internal static class InnerToObject
             {
                 var epRule = explicitPositionalRules[pi];
                 var (pidx, pval) = unconsumedPositionals[pi];
-                var propType = Nullable.GetUnderlyingType(epRule.Property.PropertyType) ?? epRule.Property.PropertyType;
+                var propType = UnwrapNullable(epRule.Property.PropertyType);
                 if (propType == typeof(string))
                 {
-                    var pathErr = ValidatePathConstraints(epRule, pval);
+                    var pathErr = ValidateValueConstraints(epRule, pval);
                     if (pathErr is not null) return (pathErr, pidx);
                 }
                 var (convErr, convResult) = ConvertValue(pval, propType);
@@ -905,10 +911,10 @@ internal static class InnerToObject
         {
             var ipRule = implicitRules[pi];
             var (pidx, pval) = remainingPositionals[pi];
-            var propType = Nullable.GetUnderlyingType(ipRule.Property.PropertyType) ?? ipRule.Property.PropertyType;
+            var propType = UnwrapNullable(ipRule.Property.PropertyType);
             if (propType == typeof(string))
             {
-                var pathErr = ValidatePathConstraints(ipRule, pval);
+                var pathErr = ValidateValueConstraints(ipRule, pval);
                 if (pathErr is not null) return (pathErr, pidx);
             }
             var (convErr, convResult) = ConvertValue(pval, propType);
@@ -966,6 +972,11 @@ internal static class InnerToObject
         }
     }
 
+    private static Type UnwrapNullable(Type t) => Nullable.GetUnderlyingType(t) ?? t;
+
+    private static List<PropertyRule> GetOrBuildRules(Dictionary<Type, List<PropertyRule>> cache, Type type) =>
+        cache.TryGetValue(type, out var r) ? r : cache[type] = BuildRules(type);
+
     private static HashSet<string> BuildKnownArgNames(List<PropertyRule> rules)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1000,12 +1011,11 @@ internal static class InnerToObject
     {
         // Collect all single-char flag names
         var singleCharFlags = new HashSet<char>();
-        var valueFlags = new HashSet<char>(); // flags that take a value
 
         foreach (var rule in rules)
         {
             CollectSingleCharFlags(rule.HasParameterNames, singleCharFlags, null);
-            CollectSingleCharFlags(rule.ValueForNames, singleCharFlags, valueFlags);
+            CollectSingleCharFlags(rule.ValueForNames, singleCharFlags, null);
             CollectSingleCharFlags(rule.ValueForBoolTrueNames, singleCharFlags, null);
             CollectSingleCharFlags(rule.ValueForBoolFalseNames, singleCharFlags, null);
             if (rule.EnumMemberRules is not null)
@@ -1017,7 +1027,7 @@ internal static class InnerToObject
                 }
         }
 
-        if (singleCharFlags.Count == 0 && valueFlags.Count == 0)
+        if (singleCharFlags.Count == 0)
             return args;
 
         var result = new List<string>(args.Length);
@@ -1029,7 +1039,7 @@ internal static class InnerToObject
             {
                 var chars = arg[1..];
                 // Check all chars are known single-char flags
-                var allKnown = chars.All(c => singleCharFlags.Contains(c) || valueFlags.Contains(c));
+                var allKnown = chars.All(singleCharFlags.Contains);
                 if (allKnown && chars.Length > 1)
                 {
                     anyExpanded = true;
@@ -1121,35 +1131,25 @@ internal static class InnerToObject
 
         try
         {
-            if (targetType == typeof(string))
-                return (null, raw);
-            if (targetType == typeof(bool))
-                return (null, bool.Parse(raw));
-            if (targetType == typeof(int))
-                return (null, int.Parse(raw));
-            if (targetType == typeof(DateTime))
-                return (null, DateTime.Parse(raw));
-            if (targetType == typeof(DateOnly))
-                return (null, DateOnly.Parse(raw));
-            if (targetType == typeof(TimeOnly))
-                return (null, TimeOnly.Parse(raw));
-            if (targetType == typeof(TimeSpan))
-                return (null, TimeSpan.Parse(raw));
-            if (targetType == typeof(Guid))
-                return (null, Guid.Parse(raw));
-            if (targetType == typeof(Uri))
-                return (null, new Uri(raw));
-            if (targetType == typeof(FileInfo))
-                return (null, new FileInfo(raw));
-            if (targetType == typeof(DirectoryInfo))
-                return (null, new DirectoryInfo(raw));
-            if (targetType == typeof(System.Net.IPAddress))
-                return (null, System.Net.IPAddress.Parse(raw));
-            if (targetType == typeof(Version))
-                return (null, Version.Parse(raw));
-            if (targetType.IsEnum)
-                return (null, Enum.Parse(targetType, raw, ignoreCase: true));
-            return (null, Convert.ChangeType(raw, targetType));
+            var result = targetType switch
+            {
+                _ when targetType == typeof(string)               => raw,
+                _ when targetType == typeof(bool)                 => bool.Parse(raw),
+                _ when targetType == typeof(int)                  => int.Parse(raw),
+                _ when targetType == typeof(DateTime)             => DateTime.Parse(raw),
+                _ when targetType == typeof(DateOnly)             => DateOnly.Parse(raw),
+                _ when targetType == typeof(TimeOnly)             => TimeOnly.Parse(raw),
+                _ when targetType == typeof(TimeSpan)             => TimeSpan.Parse(raw),
+                _ when targetType == typeof(Guid)                 => Guid.Parse(raw),
+                _ when targetType == typeof(Uri)                  => new Uri(raw),
+                _ when targetType == typeof(FileInfo)             => new FileInfo(raw),
+                _ when targetType == typeof(DirectoryInfo)        => new DirectoryInfo(raw),
+                _ when targetType == typeof(System.Net.IPAddress) => System.Net.IPAddress.Parse(raw),
+                _ when targetType == typeof(Version)              => Version.Parse(raw),
+                _ when targetType.IsEnum                          => Enum.Parse(targetType, raw, ignoreCase: true),
+                _                                                 => Convert.ChangeType(raw, targetType)
+            };
+            return (null, result);
         }
         catch (Exception ex) when (ex is FormatException or OverflowException or ArgumentException or UriFormatException)
         {
@@ -1159,7 +1159,7 @@ internal static class InnerToObject
 
     internal static bool IsCollectionProperty(Type type, out Type elementType)
     {
-        var underlying = Nullable.GetUnderlyingType(type) ?? type;
+        var underlying = UnwrapNullable(type);
 
         // Array: T[]
         if (underlying.IsArray)
@@ -1187,7 +1187,7 @@ internal static class InnerToObject
 
     private static (string? error, object? result) MaterializeCollection(Type propType, List<object> items)
     {
-        var underlying = Nullable.GetUnderlyingType(propType) ?? propType;
+        var underlying = UnwrapNullable(propType);
 
         // Array: T[]
         if (underlying.IsArray)
@@ -1219,7 +1219,7 @@ internal static class InnerToObject
         return FillCollection(underlying, typeArg, items);
     }
 
-    private static string? ValidatePathConstraints(PropertyRule rule, string value)
+    private static string? ValidateValueConstraints(PropertyRule rule, string value)
     {
         if (rule.IsExistingOnlyFile)
         {

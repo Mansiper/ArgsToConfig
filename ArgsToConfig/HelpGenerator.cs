@@ -126,7 +126,7 @@ public static class HelpGenerator
             // nothing extra
         }
 
-        if (argsIfSet is not null && argsIfSet.Description is not null)
+        if (argsIfSet?.Description != null)
             sb.AppendLine($"      (requires: {string.Join(", ", argsIfSet.GetFields)})\t{argsIfSet.Description}");
     }
 

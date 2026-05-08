@@ -69,4 +69,10 @@ internal sealed class PropertyRule
 
     // EnvVar fallback (set on ArgsValueFor, ArgsHasParameter, ArgsEnum)
     public string? EnvVar { get; init; }
+
+    // True for any kind of positional placement
+    public bool IsPositional => IsImplicitPositional || PositionalIndex >= 0 || AfterFields is not null;
+
+    // Effective positional sort order
+    public int PositionalOrder => PositionalIndex >= 0 ? PositionalIndex : int.MaxValue;
 }

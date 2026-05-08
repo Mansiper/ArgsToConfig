@@ -33,8 +33,7 @@ internal static class InnerToArgs
                 var items = (System.Collections.IEnumerable)rawValue;
                 foreach (var item in items)
                 {
-                    var itemType = item.GetType();
-                    var cmdAttr = itemType.GetCustomAttribute<ArgsPipelineCommandAttribute>();
+                    var cmdAttr = item.GetType().GetCustomAttribute<ArgsPipelineCommandAttribute>();
                     if (cmdAttr is not null)
                         deferred.Add(cmdAttr.GetName);
                     BuildArgs(item, deferred);
@@ -45,8 +44,7 @@ internal static class InnerToArgs
             // ── ArgsValueForBool ─────────────────────────────────────────────
             if (rule.ValueForBoolTrueNames is not null && rule.ValueForBoolFalseNames is not null)
             {
-                var bVal = (bool)rawValue;
-                result.Add(bVal ? rule.ValueForBoolTrueNames[0] : rule.ValueForBoolFalseNames[0]);
+                result.Add((bool)rawValue ? rule.ValueForBoolTrueNames[0] : rule.ValueForBoolFalseNames[0]);
                 continue;
             }
 
@@ -54,18 +52,13 @@ internal static class InnerToArgs
             if (rule.HasParameterNames is not null && rule.ValueForNames is null)
             {
                 var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
-                if (propType == typeof(bool))
+                if (propType == typeof(bool) && (bool)rawValue)
                 {
-                    if ((bool)rawValue)
-                    {
-                        // Positional-name parameter (no dash) or dash flag
-                        var flagName = rule.HasParameterNames[0];
-                        if (!flagName.StartsWith('-'))
-                            positionalRules.Add((rule.PositionalIndex >= 0 ? rule.PositionalIndex : int.MaxValue, flagName));
-                        else
-                            result.Add(flagName);
-                    }
-                    // continue;
+                    var flagName = rule.HasParameterNames[0];
+                    if (flagName.StartsWith('-'))
+                        result.Add(flagName);
+                    else
+                        positionalRules.Add((rule.PositionalOrder, flagName));
                 }
                 continue;
             }
@@ -74,23 +67,22 @@ internal static class InnerToArgs
             if (rule is { IsEnum: true, EnumMemberRules: not null })
             {
                 var enumVal = rawValue;
-                // Per-member ArgsHasParameter (no ValueFor)
                 if (rule.ValueForNames is null)
                 {
+                    // Per-member ArgsHasParameter (no ValueFor)
+                    var mr = rule.EnumMemberRules.FirstOrDefault(m => m.Value.Equals(enumVal));
+                    if (mr?.ArgsValue is not null)
+                        result.Add(mr.ArgsValue[0]);
+                }
+                else
+                {
+                    // Backed by ArgsValueFor: emit --flag value
                     var mr = rule.EnumMemberRules.FirstOrDefault(m => m.Value.Equals(enumVal));
                     if (mr is not null)
                     {
-                        if (mr.ArgsValue is not null)
-                            result.Add(mr.ArgsValue[0]);
+                        result.Add(rule.ValueForNames[0]);
+                        result.Add(mr.ArgsValue?[0] ?? mr.Value.ToString()!);
                     }
-                    continue;
-                }
-                // Backed by ArgsValueFor: emit --flag value
-                var valueMr = rule.EnumMemberRules.FirstOrDefault(m => m.Value.Equals(enumVal));
-                if (valueMr is not null)
-                {
-                    result.Add(rule.ValueForNames![0]);
-                    result.Add(valueMr.ArgsValue?[0] ?? valueMr.Value.ToString()!);
                 }
                 continue;
             }
@@ -98,22 +90,20 @@ internal static class InnerToArgs
             // ── ArgsValueFor ─────────────────────────────────────────────────
             if (rule.ValueForNames is not null)
             {
-                var strValues = SerializePropertyValue(rule, rawValue);
-                foreach (var sv in strValues)
+                var flagName = rule.ValueForNames[0];
+                foreach (var sv in SerializePropertyValue(rule, rawValue))
                 {
-                    result.Add(rule.ValueForNames[0]);
+                    result.Add(flagName);
                     result.Add(sv);
                 }
                 continue;
             }
 
             // ── Implicit positional / ArgsPositional / ArgsAfter ─────────────
-            if (rule.IsImplicitPositional || rule.PositionalIndex >= 0 || rule.AfterFields is not null)
+            if (rule.IsPositional)
             {
-                var strValues = SerializePropertyValue(rule, rawValue);
-                var order = rule.PositionalIndex >= 0 ? rule.PositionalIndex : int.MaxValue;
-                foreach (var sv in strValues)
-                    positionalRules.Add((order, sv));
+                foreach (var sv in SerializePropertyValue(rule, rawValue))
+                    positionalRules.Add((rule.PositionalOrder, sv));
                 continue;
             }
 
@@ -121,9 +111,7 @@ internal static class InnerToArgs
             if (rule.IsPathspec)
             {
                 result.Add("--");
-                var pathspecValues = SerializePropertyValue(rule, rawValue);
-                result.AddRange(pathspecValues);
-                // continue;
+                result.AddRange(SerializePropertyValue(rule, rawValue));
             }
         }
 
@@ -161,9 +149,7 @@ internal static class InnerToArgs
             // ── ArgsValueForBool ─────────────────────────────────────────────
             if (rule.ValueForBoolTrueNames is not null && rule.ValueForBoolFalseNames is not null)
             {
-                var trueFlag = rule.ValueForBoolTrueNames[0];
-                var falseFlag = rule.ValueForBoolFalseNames[0];
-                tokens.Add($"[{trueFlag} | {falseFlag}]");
+                tokens.Add($"[{rule.ValueForBoolTrueNames[0]} | {rule.ValueForBoolFalseNames[0]}]");
                 continue;
             }
 
@@ -171,10 +157,7 @@ internal static class InnerToArgs
             if (rule.HasParameterNames is not null && rule.ValueForNames is null)
             {
                 if (propType == typeof(bool))
-                {
-                    var names = string.Join(" | ", rule.HasParameterNames);
-                    tokens.Add($"[{names}]");
-                }
+                    tokens.Add($"[{string.Join(" | ", rule.HasParameterNames)}]");
                 continue;
             }
 
@@ -183,12 +166,10 @@ internal static class InnerToArgs
             {
                 if (rule.ValueForNames is not null)
                 {
-                    var flag = rule.ValueForNames[0];
                     var values = string.Join(" | ", rule.EnumMemberRules
                         .Select(m => m.ArgsValue?[0] ?? m.Value.ToString()!));
-                    var optional = rule.ValueForOptional;
-                    var token = $"{flag} ({values})";
-                    tokens.Add(optional ? $"[{token}]" : $"<{token}>");
+                    var token = $"{rule.ValueForNames[0]} ({values})";
+                    tokens.Add(rule.ValueForOptional ? $"[{token}]" : $"<{token}>");
                 }
                 else
                 {
@@ -204,34 +185,10 @@ internal static class InnerToArgs
             // ── ArgsValueFor ─────────────────────────────────────────────────
             if (rule.ValueForNames is not null)
             {
-                var flag = rule.ValueForNames[0];
-                string valueRepr;
-                if (rule.TupleDividers is not null)
-                {
-                    var underlyingType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
-                    var isCollection = InnerToObject.IsCollectionProperty(underlyingType, out var elementType);
-                    var tupleType = isCollection ? elementType : underlyingType;
-                    var typeArgs = tupleType.GetGenericArguments();
-                    var dividers = rule.TupleDividers;
-                    var parts = new System.Text.StringBuilder();
-                    parts.Append($"<{typeArgs[0].Name.ToLowerInvariant()}>");
-                    for (var i = 1; i < typeArgs.Length; i++)
-                    {
-                        var divider = dividers[(i - 1) % dividers.Length];
-                        if (i < typeArgs.Length - 1 || dividers.Length < typeArgs.Length - 1)
-                            parts.Append(divider);
-                        else
-                            // last divider — show alternatives if more than one divider was provided
-                            parts.Append(dividers.Length > 1 ? $"{string.Join("|", dividers.Skip(i - 1))}" : divider);
-                        parts.Append($"<{typeArgs[i].Name.ToLowerInvariant()}>");
-                    }
-                    valueRepr = isCollection ? $"{parts}..." : parts.ToString();
-                }
-                else
-                {
-                    valueRepr = $"<{propName}>";
-                }
-                var token = $"{flag} {valueRepr}";
+                var valueRepr = rule.TupleDividers is not null
+                    ? BuildTupleValueRepr(rule)
+                    : $"<{propName}>";
+                var token = $"{rule.ValueForNames[0]} {valueRepr}";
                 tokens.Add(rule.ValueForOptional ? $"[{token}]" : $"<{token}>");
                 continue;
             }
@@ -244,41 +201,56 @@ internal static class InnerToArgs
             }
 
             // ── Positional ────────────────────────────────────────────────────
-            if (rule.IsImplicitPositional || rule.PositionalIndex >= 0 || rule.AfterFields is not null)
-            {
+            if (rule.IsPositional)
                 tokens.Add($"<{propName}>");
-            }
         }
+    }
+
+    private static string BuildTupleValueRepr(PropertyRule rule)
+    {
+        var underlyingType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
+        var isCollection = InnerToObject.IsCollectionProperty(underlyingType, out var elementType);
+        var tupleType = isCollection ? elementType : underlyingType;
+        var typeArgs = tupleType.GetGenericArguments();
+        var dividers = rule.TupleDividers!;
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"<{typeArgs[0].Name.ToLowerInvariant()}>");
+        for (var i = 1; i < typeArgs.Length; i++)
+        {
+            if (i < typeArgs.Length - 1 || dividers.Length < typeArgs.Length - 1)
+                sb.Append(dividers[(i - 1) % dividers.Length]);
+            else
+                // Last divider — show alternatives if more than one divider was provided
+                sb.Append(dividers.Length > 1 ? string.Join("|", dividers.Skip(i - 1)) : dividers[0]);
+            sb.Append($"<{typeArgs[i].Name.ToLowerInvariant()}>");
+        }
+
+        return isCollection ? $"{sb}..." : sb.ToString();
     }
 
     private static List<string> SerializePropertyValue(PropertyRule rule, object value)
     {
-        var result = new List<string>();
         var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
 
         if (InnerToObject.IsCollectionProperty(propType, out var elementType))
         {
             var items = (System.Collections.IEnumerable)value;
-            foreach (var item in items)
-                result.Add(SerializeScalar(item, elementType, rule));
-            return result;
+            return [.. items.Cast<object>().Select(item => SerializeScalar(item, elementType, rule))];
         }
 
-        result.Add(SerializeScalar(value, propType, rule));
-        return result;
+        return [SerializeScalar(value, propType, rule)];
     }
 
     private static string SerializeScalar(object value, Type type, PropertyRule rule)
     {
-        if (rule.TupleDividers is not null && type.IsGenericType)
+        if (rule.TupleDividers is not null && type.IsValueType && type.IsGenericType)
         {
-            var typeArgs = type.GetGenericArguments();
             var fields = type.GetFields();
-            var parts = new string[typeArgs.Length];
-            for (var i = 0; i < typeArgs.Length; i++)
+            var parts = new string[fields.Length];
+            for (var i = 0; i < fields.Length; i++)
                 parts[i] = fields[i].GetValue(value)?.ToString() ?? string.Empty;
-            var divider = rule.TupleDividers[0];
-            return string.Join(divider, parts);
+            return string.Join(rule.TupleDividers[0], parts);
         }
 
         return value switch
