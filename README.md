@@ -18,12 +18,66 @@ dotnet add package ArgsToConfig
 ## Quick start
 
 ```csharp
-var config = ArgumentsReader.ToObject<MyConfig>(args);
+var (config, errors, position) = ArgumentsReader.ToObject<MyConfig>(args);
+if (errors is not null)
+{
+    Console.Error.WriteLine(string.Join('\n', errors));
+    if (position is not null)
+        Console.Error.WriteLine($"Error at argument #{position}");
+    return;
+}
 ```
+
+`ToObject<T>` returns a value tuple `(T? result, string[]? errors, int? position)`.  
+On success `errors` is `null`; on failure `result` is `null`, `errors` contains the error messages, and `position` is the 1-based index of the offending argument (or `null` for validation errors). **No exceptions are thrown.**
 
 Decorate the properties of `MyConfig` with the appropriate attributes (see below) and the library handles the rest.
 
 > 💡 **Optional arguments** — if an argument is optional, simply declare the property as a nullable type (e.g. `string?`, `bool?`, `int?`). When the argument is absent, the property will remain `null`.
+
+---
+
+## Supported types
+
+The following types are supported out-of-the-box for all value-accepting attributes (`[ArgsValueFor]`, `[ArgsPositional]`, tuple elements, etc.):
+
+`string`, `bool`, `int`, `double`, `float`, `long`, `decimal`, `char`,  
+`DateTime`, `DateOnly`, `TimeOnly`, `TimeSpan`,  
+`Guid`, `Uri`, `Version`, `System.Net.IPAddress`,  
+`FileInfo`, `DirectoryInfo`,  
+any `enum`, any `IConvertible`
+
+For any other type use `[ArgsConvertor]` with a custom `IArgsConvertor` implementation.
+
+---
+
+## Converting back to arguments
+
+```csharp
+// object → string[]
+string[] argv = ArgumentsReader.ToArgs(config);
+
+// object → synopsis string  (e.g. "-v --output <outputpath> [--format <format>]")
+string synopsis = ArgumentsReader.ToArgsString<MyConfig>();
+```
+
+`ToArgs<T>` reconstructs a `string[]` from a populated config object that can be passed back to any CLI parser.  
+`ToArgsString<T>()` returns a human-readable synopsis of the command-line interface in the style of `git commit [-a] [-m <message>]`.
+
+---
+
+## Help generator
+
+`HelpGenerator` produces formatted help text from `Description` properties set on the attributes:
+
+```csharp
+ArgumentsReader.OnHelp = async subcmd =>
+{
+    Console.WriteLine(HelpGenerator.GetHelp<MyConfig>());
+};
+```
+
+Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) to obtain the help string; the result is cached. Call `HelpGenerator.ClearCache()` to invalidate the cache.
 
 ---
 
@@ -36,21 +90,21 @@ Decorate the properties of `MyConfig` with the appropriate attributes (see below
 | `[ArgsValueForBool("true-name", "false-name")]` | `bool` property | sets `true`/`false` depending on which flag is present |
 | `[ArgsEnum]` | enum property | maps flag/value arguments to enum members decorated with `[ArgsValue]`; optionally accepts pipe-separated flag names and an `optional` parameter |
 | `[ArgsValue("value")]` | enum member | the CLI string value that maps to this enum member |
-| `[ArgsAfter("prop1", "prop2", ...)]` | any property | the field can only be assigned a value after **all** of the specified fields have been assigned; once this field receives a value, the specified fields become immutable — attempting to change them throws an exception |
-| `[ArgsOneOf("prop1", "prop2", ...)]` | nullable property | only one of the specified fields and the field it is applied to may have a value at a time; apply it to the **last** field in the group; all fields in the group must be nullable |
+| `[ArgsAfter("prop1", "prop2", ...)]` | any property | the field can only be assigned a value after **all** of the specified fields have been assigned; once this field receives a value, the specified fields become immutable |
+| `[ArgsOneOf("prop1", "prop2", ...)]` | **class** | only one of the listed fields may have a value at a time; all listed fields must be nullable; may be applied multiple times |
 | `[ArgsIfSet("prop1", "prop2", ...)]` | any property | the field can only be assigned a value if **all** specified fields are not `null` |
 | `[ArgsPathspec]` | `string[]` property | captures all arguments after `--` |
 | `[ArgsPositional(index)]` | any property | captures positional arguments by zero-based index |
-| `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand class when the named keyword is encountered; the subcommand name is defined here, not on the class |
+| `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand object when the named keyword is encountered; supports **classes, records, and structs**, including double nesting |
 | `[ArgsPipeline]` | any collection of an interface | collects an ordered sequence of pipeline command objects that all implement the property's element interface |
 | `[ArgsPipelineCommand("name")]` | class | registers a class as a named pipeline command; the class must implement the interface declared on the `[ArgsPipeline]` property |
 | `[ArgsTuple("div1", ...)]` | tuple property | splits a single argument value into the elements of a value tuple using the supplied dividers; supports a cyclic (default) and a per-part mode via `PartsDividers` |
 | `[ArgsConvertor(typeof(T))]` | any property | applies a custom `IArgsConvertor` to convert the raw string value into the property's type |
-| `[ArgsAcceptFromAmong("a", "b", ...)]` | string (or collection of string) property | rejects any value that is not in the supplied set; throws `ArgumentException` otherwise |
+| `[ArgsAcceptFromAmong("a", "b", ...)]` | string (or collection of string) property | rejects any value that is not in the supplied set |
 | `[ArgsExistingOnlyFile]` | string property | rejects the value if it is not a path to an existing file |
 | `[ArgsExistingOnlyDirectory]` | string property | rejects the value if it is not a path to an existing directory |
 | `[ArgsLegalFileNamesOnly]` | string property | rejects the value if it contains characters that are illegal in a file name on the current OS |
-| *(any `ValidationAttribute`)* | any property | standard `System.ComponentModel.DataAnnotations` attributes (e.g. `[Required]`, `[Range]`, `[EmailAddress]`) are evaluated after parsing and throw `ValidationException` on failure |
+| *(any `ValidationAttribute`)* | any property | standard `System.ComponentModel.DataAnnotations` attributes (e.g. `[Required]`, `[Range]`, `[EmailAddress]`) are evaluated after parsing |
 
 ---
 
@@ -72,7 +126,7 @@ class AppConfig
     public string? Format { get; set; }
 }
 
-var config = ArgumentsReader.ToObject<AppConfig>(args);
+var (config, errors, position) = ArgumentsReader.ToObject<AppConfig>(args);
 // config.Verbose    → true
 // config.OutputPath → "./bin"
 // config.Format     → "json"
@@ -165,7 +219,7 @@ class DiffConfig
 
 ### Subcommands (`[ArgsObject]`)
 
-The subcommand keyword is specified directly on `[ArgsObject]`. `ArgsObjectRoot` is no longer used.
+The subcommand keyword is specified directly on `[ArgsObject]`. The sub-object can be a **class, record, or struct**, and nesting can go two levels deep.
 
 ```csharp
 // app connect -u alice -p secret run
@@ -178,13 +232,24 @@ class AppConfig
     public bool? Run { get; set; }
 }
 
-class ConnectionConfig
+// records and structs work too:
+record ConnectionConfig
 {
     [ArgsValueFor("-u")]
     public string User { get; set; } = null!;
 
     [ArgsValueFor("-p")]
     public string Pass { get; set; } = null!;
+
+    // double nesting
+    [ArgsObject("tls")]
+    public TlsConfig? Tls { get; set; }
+}
+
+struct TlsConfig
+{
+    [ArgsHasParameter("--verify")]
+    public bool? Verify { get; set; }
 }
 ```
 
@@ -293,20 +358,63 @@ Any type that implements `ICollection<T>` is supported (e.g. `List<string>`, `st
 
 ---
 
+### Common types
+
+Out-of-the-box value conversion for rich .NET types:
+
+```csharp
+// exec --only-date 2024-06-15 --time 14:30:00 --span 01:30:00
+//      --file notes.txt --dir /tmp --url https://example.com
+//      --guid d3b07384-d9a5-4e7d-a8d0-1234567890ab
+//      --ip 192.168.1.1 --version 1.2.3.4
+class CommonTypesConfig
+{
+    [ArgsValueFor("--date")]
+    public DateTime? Date { get; set; }
+
+    [ArgsValueFor("--only-date")]
+    public DateOnly? OnlyDate { get; set; }
+
+    [ArgsValueFor("--time")]
+    public TimeOnly? Time { get; set; }
+
+    [ArgsValueFor("--span")]
+    public TimeSpan? Span { get; set; }
+
+    [ArgsValueFor("--file")]
+    public FileInfo? File { get; set; }
+
+    [ArgsValueFor("--dir")]
+    public DirectoryInfo? Dir { get; set; }
+
+    [ArgsValueFor("--url")]
+    public Uri? Url { get; set; }
+
+    [ArgsValueFor("--guid")]
+    public Guid? Guid { get; set; }
+
+    [ArgsValueFor("--ip")]
+    public System.Net.IPAddress? Ip { get; set; }
+
+    [ArgsValueFor("--version")]
+    public Version? Version { get; set; }
+}
+```
+
 ### Mutual exclusion and conditional requirements
 
-`[ArgsOneOf]` takes a list of field names and must be placed on the **last** field in the group. Only one of the listed fields (including the decorated one) may have a value; all must be nullable.  
-`[ArgsAfter]` requires that all listed fields are assigned before the decorated field can receive its value. Once the decorated field is assigned, the listed fields become immutable — any attempt to change them throws an exception.  
+`[ArgsOneOf]` is a **class-level** attribute. It takes a list of field names; only one of the listed fields may have a value at a time. All listed fields must be nullable. It can be applied multiple times to the same class for independent groups.  
+`[ArgsAfter]` requires that all listed fields are assigned before the decorated field can receive its value. Once the decorated field is assigned, the listed fields become immutable.  
 `[ArgsIfSet]` allows the decorated field to be assigned only when all specified fields are not `null`.
 
 ```csharp
+[ArgsOneOf(nameof(File), nameof(Message))]   // exactly one of File/Message may be set
 class CommitConfig
 {
     [ArgsValueFor("-F|--file", optional: true)]
     public string? File { get; set; }
 
     [ArgsValueFor("-m|--message", optional: true)]
-    [ArgsOneOf(nameof(File))]          // exactly one of File/Message must be set; apply to the last field
     public string? Message { get; set; }
 
     [ArgsHasParameter("--pathspec-file-nul")]
@@ -405,7 +513,7 @@ class AppConfig
 
 ### `System.ComponentModel.DataAnnotations` support
 
-Any standard `ValidationAttribute` (e.g. `[Required]`, `[Range]`, `[EmailAddress]`, `[MaxLength]`, `[RegularExpression]`) placed on a property is evaluated after parsing. A `ValidationException` is thrown when a constraint is violated.
+Any standard `ValidationAttribute` (e.g. `[Required]`, `[Range]`, `[EmailAddress]`, `[MaxLength]`, `[RegularExpression]`) placed on a property is evaluated after parsing. Validation failures are returned as errors in the `errors` array of the result tuple.
 
 ```csharp
 using System.ComponentModel.DataAnnotations;

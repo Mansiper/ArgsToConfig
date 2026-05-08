@@ -2,8 +2,10 @@
 
 /// <summary>
 /// Indicates that only one of the specified fields can have a value at a time.
+/// Must be applied to the class, not to individual properties.
+/// Can be applied multiple times to define independent mutual-exclusion groups.
 /// </summary>
-/// <remarks>All of these fields must be nullable.</remarks>
+/// <remarks>All listed fields must be nullable.</remarks>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
 public class ArgsOneOfAttribute : Attribute
 {
