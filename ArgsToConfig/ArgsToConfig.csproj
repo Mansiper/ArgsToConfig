@@ -4,7 +4,26 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <!-- NuGet package metadata -->
+    <PackageId>ArgsToConfig</PackageId>
+    <Version>0.9.0</Version>
+    <Authors>Pavel Razboynikov</Authors>
+    <Description>A library for parsing command-line arguments into strongly-typed configuration objects using attributes.</Description>
+    <PackageTags>args;arguments;cli;commandline;config;configuration;parser;mapper</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Mansiper/ArgsToConfig</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Mansiper/ArgsToConfig</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="ArgsToConfig.UnitTests" />

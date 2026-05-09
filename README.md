@@ -5,7 +5,7 @@ No manual parsing loops — just decorate your properties and call `ArgumentsRea
 
 > 📦 NuGet: *link coming soon*  
 
-*Breaking changes are still possible until the 1.0 release.*
+*Breaking changes are still possible until the 1.0.0 release.*
 
 ---
 
