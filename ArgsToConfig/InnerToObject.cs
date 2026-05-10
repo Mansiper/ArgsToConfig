@@ -612,27 +612,34 @@ internal static class InnerToObject
             else if (value is not null && IsCollectionProperty(rule.Property.PropertyType, out var elementType))
             {
                 // Multi-value collection: string[], T[], List<T>, HashSet<T>, etc.
-                if (elementType == typeof(string))
-                {
-                    var pathErr = ValidateValueConstraints(rule, value);
-                    if (pathErr is not null) return (pathErr, i);
-                }
-                object converted;
+                if (!pendingCollections.TryGetValue(rule.Property.Name, out var pending))
+                    pending = (rule, [], flagIndex);
                 if (rule.TupleDividers is not null && elementType.IsGenericType)
                 {
+                    // Collection of tuples: each flag occurrence is split into one tuple element
                     var (tupleErr, tupleResult) = ConvertTupleValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers);
                     if (tupleErr is not null) return (tupleErr, i);
-                    converted = tupleResult!;
+                    pending.Items.Add(tupleResult!);
+                }
+                else if (rule.TupleDividers is not null && !elementType.IsGenericType)
+                {
+                    // Collection of plain type: a single value is split by dividers into multiple elements
+                    var (splitErr, splitItems) = ConvertCollectionValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers);
+                    if (splitErr is not null) return (splitErr, i);
+                    foreach (var item in splitItems!)
+                        pending.Items.Add(item);
                 }
                 else
                 {
+                    if (elementType == typeof(string))
+                    {
+                        var pathErr = ValidateValueConstraints(rule, value);
+                        if (pathErr is not null) return (pathErr, i);
+                    }
                     var (convErr, convResult) = ConvertValue(value, elementType);
                     if (convErr is not null) return (convErr, i);
-                    converted = convResult!;
+                    pending.Items.Add(convResult!);
                 }
-                if (!pendingCollections.TryGetValue(rule.Property.Name, out var pending))
-                    pending = (rule, [], flagIndex);
-                pending.Items.Add(converted);
                 pendingCollections[rule.Property.Name] = (pending.Rule, pending.Items, flagIndex);
                 setFieldNames.Add(rule.Property.Name);
                 consumedAt[rule.Property.Name] = flagIndex;
@@ -962,6 +969,22 @@ internal static class InnerToObject
             }
         }
 
+        // ArgsMutuallyRequired class-level validation
+        var mutuallyRequiredAttributes = obj.GetType().GetCustomAttributes<ArgsMutuallyRequiredAttribute>();
+        foreach (var mutReqAttr in mutuallyRequiredAttributes)
+        {
+            var setInGroup = mutReqAttr.GetFields.Where(setFieldNames.Contains).ToList();
+            if (setInGroup.Count > 0 && setInGroup.Count < mutReqAttr.GetFields.Length)
+            {
+                var lastSetPos = setInGroup
+                    .Where(consumedAt.ContainsKey)
+                    .Select(f => consumedAt[f])
+                    .DefaultIfEmpty(0)
+                    .Max();
+                return ($"Properties '{string.Join("', '", mutReqAttr.GetFields)}' must all be set together ([ArgsMutuallyRequired]).", lastSetPos);
+            }
+        }
+
         foreach (var rule in rules)
         {
             var name = rule.Property.Name;
@@ -1095,6 +1118,43 @@ internal static class InnerToObject
                     valueSet?.Add(n[1]);
                 }
         }
+    }
+
+    private static (string? error, List<object>? result) ConvertCollectionValue(string raw, Type elementType, string[] dividers, bool partsDividers)
+    {
+        if (raw is ['"', _, ..] && raw[^1] == '"')
+            raw = raw[1..^1];
+
+        var parts = new List<string>();
+        var remaining = raw;
+        var dividerIndex = 0;
+        while (true)
+        {
+            var divider = partsDividers
+                ? (dividerIndex < dividers.Length ? dividers[dividerIndex] : null)
+                : dividers[dividerIndex % dividers.Length];
+
+            if (divider is null)
+                break;
+
+            var idx = remaining.IndexOf(divider, StringComparison.Ordinal);
+            if (idx < 0)
+                break;
+
+            parts.Add(remaining[..idx]);
+            remaining = remaining[(idx + divider.Length)..];
+            dividerIndex++;
+        }
+        parts.Add(remaining);
+
+        var items = new List<object>(parts.Count);
+        foreach (var part in parts)
+        {
+            var (convErr, convResult) = ConvertValue(part, elementType);
+            if (convErr is not null) return (convErr, null);
+            items.Add(convResult!);
+        }
+        return (null, items);
     }
 
     private static (string? error, object? result) ConvertTupleValue(string raw, Type tupleType, string[] dividers, bool partsDividers)
@@ -1258,7 +1318,7 @@ internal static class InnerToObject
         var valueDividers = dividers.Length > 1 ? dividers[1..] : dividers;
 
         object valueResult;
-        if (valueType.IsValueType && valueType.IsGenericType)
+        if (valueType is { IsValueType: true, IsGenericType: true })
         {
             // Tuple value
             var (valErr, valResult) = ConvertTupleValue(valueStr, valueType, valueDividers, partsDividers);
@@ -1299,11 +1359,9 @@ internal static class InnerToObject
         var valueType = typeArgs[1];
 
         var def = underlying.GetGenericTypeDefinition();
-        Type concreteType;
-        if (def == typeof(SortedDictionary<,>))
-            concreteType = underlying;
-        else
-            concreteType = typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
+        var concreteType = def == typeof(SortedDictionary<,>) 
+            ? underlying 
+            : typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
 
         var instance = Activator.CreateInstance(concreteType)!;
         var addMethod = typeof(IDictionary<,>).MakeGenericType(keyType, valueType).GetMethod("Add")!;

@@ -132,6 +132,7 @@ Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) 
 | `[ArgsEnumValue("value")]` | enum member | the CLI string value that maps to this enum member |
 | `[ArgsAfter("prop1", "prop2", ...)]` | any property | the field can only be assigned a value after **all** of the specified fields have been assigned; once this field receives a value, the specified fields become immutable |
 | `[ArgsOneOf("prop1", "prop2", ...)]` | **class** | only one of the listed fields may have a value at a time; all listed fields must be nullable; may be applied multiple times |
+| `[ArgsMutuallyRequired("prop1", "prop2", ...)]` | **class** | all of the listed fields must have a value at the same time (or none of them); all listed fields must be nullable; may be applied multiple times |
 | `[ArgsIfSet("prop1", "prop2", ...)]` | any property | the field can only be assigned a value if **all** specified fields are not `null` |
 | `[ArgsPathspec]` | `string[]` property | captures all arguments after `--` |
 | `[ArgsPositional(index)]` | any property | captures positional arguments by zero-based index |
@@ -631,6 +632,7 @@ class CommonTypesConfig
 ### Mutual exclusion and conditional requirements
 
 `[ArgsOneOf]` is a **class-level** attribute. It takes a list of field names; only one of the listed fields may have a value at a time. All listed fields must be nullable. It can be applied multiple times to the same class for independent groups.  
+`[ArgsMutuallyRequired]` is the inverse of `[ArgsOneOf]`. It takes a list of field names; if any of the listed fields has a value, **all** of them must have a value. All listed fields must be nullable. It can be applied multiple times to the same class for independent groups.  
 `[ArgsAfter]` requires that all listed fields are assigned before the decorated field can receive its value. Once the decorated field is assigned, the listed fields become immutable.  
 `[ArgsIfSet]` allows the decorated field to be assigned only when all specified fields are not `null`.
 
@@ -647,6 +649,16 @@ class CommitConfig
     [ArgsHasParameter("--pathspec-file-nul")]
     [ArgsIfSet(nameof(File))]          // can only be set if File is not null
     public bool PathspecFileNul { get; set; }
+}
+
+[ArgsMutuallyRequired(nameof(User), nameof(Password))]   // User and Password must both be set or neither
+class LoginConfig
+{
+    [ArgsValueFor("--user")]
+    public string? User { get; set; }
+
+    [ArgsValueFor("--password")]
+    public string? Password { get; set; }
 }
 ```
 

@@ -214,7 +214,7 @@ public class ToArgsTests
     [Test]
     public void Split_ShouldEmitJoinedValue()
     {
-        var obj = new TupleExample { StringInt = ("hello", 42) };
+        var obj = new SplitExample { StringInt = ("hello", 42) };
         var args = ArgumentsReader.ToArgs(obj);
         args.Should().ContainInOrder("--sc2", "hello;42");
     }
@@ -222,13 +222,13 @@ public class ToArgsTests
     [Test]
     public void Split_ShouldRoundtrip()
     {
-        var obj = new TupleExample
+        var obj = new SplitExample
         {
             StringInt = ("hello", 42),
             ThreeInts = (1, 2, 3),
         };
         var args = ArgumentsReader.ToArgs(obj);
-        var (parsed, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
+        var (parsed, _, _) = ArgumentsReader.ToObject<SplitExample>(args);
         parsed.Should().BeEquivalentTo(obj);
     }
 

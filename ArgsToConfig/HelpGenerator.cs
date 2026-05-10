@@ -47,6 +47,12 @@ public static class HelpGenerator
             if (oneOf.Description is not null)
                 sb.AppendLine($"Note: {oneOf.Description}");
 
+        // Class-level MutuallyRequired descriptions
+        var mutuallyRequireds = type.GetCustomAttributes<ArgsMutuallyRequiredAttribute>();
+        foreach (var mutReq in mutuallyRequireds)
+            if (mutReq.Description is not null)
+                sb.AppendLine($"Note: {mutReq.Description}");
+
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
         foreach (var prop in props) 
