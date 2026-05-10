@@ -238,7 +238,9 @@ APP_FORMAT=json
 
 `.env` values have lower priority than real environment variables: if both define the same key, the real environment variable wins.
 
+---
 
+## Examples
 
 ### Flags and values
 
@@ -302,7 +304,7 @@ class CommitConfig
 
 ### Enum mapping
 
-Decorate each enum member with `[ArgsEnunValue]` and use `[ArgsEnum]` on the property.
+Decorate each enum member with `[ArgsEnumValue]` and use `[ArgsEnum]` on the property.
 
 ```csharp
 enum OutputFormat
@@ -341,7 +343,7 @@ Set `Flags = true` on `[ArgsEnum]` to treat the enum as a **bit-flag enum**. Mul
 
 There are three ways to accumulate flag values:
 
-#### 1. Repeating the named argument (`[ArgsValueOf]`)
+#### 1. Repeating the named argument (`[ArgsValueFor]`)
 
 Each occurrence of the flag ORs its value into the property.
 
@@ -539,81 +541,6 @@ class Config
     public (double, string, char)? DoubleStringChar { get; set; }
 }
 ```
-
-### Dictionary from repeated flags (`[ArgsSplit]` on `Dictionary<TKey, TValue>`)
-
-When `[ArgsSplit]` is applied to a `Dictionary<TKey, TValue>` property, the **first divider** separates the key from the value within each argument. Any **remaining dividers** apply to the value — they split a tuple value or a collection value exactly like the standalone tuple/collection behaviour. Repeated flags populate the dictionary with multiple entries.
-
-#### Simple value types
-
-```csharp
-// myapp --define KEY1=VALUE1 --define KEY2=VALUE2
-class AppConfig
-{
-    [ArgsValueFor("--define")]
-    [ArgsSplit("=")]
-    public Dictionary<string, string>? Defines { get; set; }
-}
-// config.Defines → { "KEY1": "VALUE1", "KEY2": "VALUE2" }
-
-// myapp --threshold cpu=90 --threshold memory=75
-class AppConfig
-{
-    [ArgsValueFor("--threshold")]
-    [ArgsSplit("=")]
-    public Dictionary<string, int>? Thresholds { get; set; }
-}
-// config.Thresholds → { "cpu": 90, "memory": 75 }
-```
-
-#### Tuple value
-
-Dividers after the first one split the tuple elements of the value:
-
-```csharp
-// myapp --entry item=hello,42
-class AppConfig
-{
-    [ArgsValueFor("--entry")]
-    [ArgsSplit("=", ",")]
-    public Dictionary<string, (string, int)>? Entries { get; set; }
-}
-// config.Entries → { "item": ("hello", 42) }
-```
-
-#### Collection value
-
-The second divider also works as a collection element separator:
-
-```csharp
-// myapp --tags env=prod,staging,dev --tags region=us,eu
-class AppConfig
-{
-    [ArgsValueFor("--tags")]
-    [ArgsSplit("=", ",")]
-    public Dictionary<string, string[]>? Tags { get; set; }
-}
-// config.Tags → { "env": ["prod", "staging", "dev"], "region": ["us", "eu"] }
-```
-
----
-
-### Collection of split values (`[ArgsSplit]` on a collection of tuples)
-
-When the property is a **collection of tuples** (e.g. `(int, int)[]`), each occurrence of the flag is split into one tuple and appended to the collection.
-
-```csharp
-// myapp --points "1,2" --points "3,4" --points "5,6"
-class AppConfig
-{
-    [ArgsValueFor("--points")]
-    [ArgsSplit(",")]
-    public (int, int)[]? Points { get; set; }
-}
-// config.Points → [(1, 2), (3, 4), (5, 6)]
-```
-
----
 
 ### Dictionary from repeated flags (`[ArgsSplit]` on `Dictionary<TKey, TValue>`)
 
