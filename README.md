@@ -41,7 +41,7 @@ Decorate the properties of `MyConfig` with the appropriate attributes (see below
 
 ## Supported types
 
-The following types are supported out-of-the-box for all value-accepting attributes (`[ArgsValueFor]`, `[ArgsPositional]`, tuple elements, etc.):
+The following types are supported out-of-the-box for all value-accepting attributes (`[ArgsEnumValueFor]`, `[ArgsPositional]`, tuple elements, etc.):
 
 `string`, `bool`, `int`, `double`, `float`, `long`, `decimal`, `char`,  
 `DateTime`, `DateOnly`, `TimeOnly`, `TimeSpan`,  
@@ -128,8 +128,8 @@ Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) 
 | `[ArgsHasParameter("name")]` | `bool` property | `true` when the named flag is present in the arguments |
 | `[ArgsValueFor("name")]` | any property | reads the value that follows the named flag |
 | `[ArgsValueForBool("true-name", "false-name")]` | `bool` property | sets `true`/`false` depending on which flag is present |
-| `[ArgsEnum]` | enum property | maps flag/value arguments to enum members decorated with `[ArgsValue]`; optionally accepts pipe-separated flag names |
-| `[ArgsValue("value")]` | enum member | the CLI string value that maps to this enum member |
+| `[ArgsEnum]` | enum property | maps flag/value arguments to enum members decorated with `[ArgsEnumValue]`; optionally accepts pipe-separated flag names |
+| `[ArgsEnumValue("value")]` | enum member | the CLI string value that maps to this enum member |
 | `[ArgsAfter("prop1", "prop2", ...)]` | any property | the field can only be assigned a value after **all** of the specified fields have been assigned; once this field receives a value, the specified fields become immutable |
 | `[ArgsOneOf("prop1", "prop2", ...)]` | **class** | only one of the listed fields may have a value at a time; all listed fields must be nullable; may be applied multiple times |
 | `[ArgsIfSet("prop1", "prop2", ...)]` | any property | the field can only be assigned a value if **all** specified fields are not `null` |
@@ -165,7 +165,7 @@ class AppConfig
     [ArgsHasParameter("--verbose", EnvVar = "APP_VERBOSE")]
     public bool Verbose { get; set; }
 
-    // Falls back to $APP_FORMAT; value must match one of the [ArgsValue] strings on the enum members
+    // Falls back to $APP_FORMAT; value must match one of the [ArgsEnumValue] strings on the enum members
     [ArgsEnum("--format", EnvVar = "APP_FORMAT")]
     public OutputFormat? Format { get; set; }
 }
@@ -249,14 +249,14 @@ class CommitConfig
 
 ### Enum mapping
 
-Decorate each enum member with `[ArgsValue]` and use `[ArgsEnum]` on the property.
+Decorate each enum member with `[ArgsEnunValue]` and use `[ArgsEnum]` on the property.
 
 ```csharp
 enum OutputFormat
 {
-    [ArgsValue("--json")] Json,
-    [ArgsValue("--xml")]  Xml,
-    [ArgsValue("--csv")]  Csv,
+    [ArgsEnumValue("--json")] Json,
+    [ArgsEnumValue("--xml")]  Xml,
+    [ArgsEnumValue("--csv")]  Csv,
 }
 
 class ReportConfig

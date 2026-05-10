@@ -95,21 +95,21 @@ internal class GitCommitExample
 
 internal enum CommitMode
 {
-    [ArgsValue("-a|--all", Description = "Stage all modifications and deletions automatically")]
+    [ArgsEnumValue("-a|--all", Description = "Stage all modifications and deletions automatically")]
     A,
-    [ArgsValue("--interactive", Description = "Interactively select which changes to include")]
+    [ArgsEnumValue("--interactive", Description = "Interactively select which changes to include")]
     Interactive,
-    [ArgsValue("-p|--patch", Description = "Use the interactive patch selection interface to choose hunks")]
+    [ArgsEnumValue("-p|--patch", Description = "Use the interactive patch selection interface to choose hunks")]
     Patch
 }
 
 internal enum UntrackedFiles
 {
-    [ArgsValue("normal", Description = "Show untracked files and directories")]
+    [ArgsEnumValue("normal", Description = "Show untracked files and directories")]
     Normal,
-    [ArgsValue("all", Description = "Also show individual files in untracked directories")]
+    [ArgsEnumValue("all", Description = "Also show individual files in untracked directories")]
     All,
-    [ArgsValue("no", Description = "Show no untracked files")]
+    [ArgsEnumValue("no", Description = "Show no untracked files")]
     No,
 }
 
@@ -124,8 +124,8 @@ internal enum CleanupMode
 
 internal enum IncludeOnly
 {
-    [ArgsValue("-i", Description = "Include specified files in the commit")]
+    [ArgsEnumValue("-i", Description = "Include specified files in the commit")]
     Include,
-    [ArgsValue("-o", Description = "Only commit specified files, ignoring staged content")]
+    [ArgsEnumValue("-o", Description = "Only commit specified files, ignoring staged content")]
     Only
 }

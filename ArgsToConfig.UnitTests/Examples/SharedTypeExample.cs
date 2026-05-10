@@ -14,9 +14,9 @@ internal class SharedEnumExample
 
 internal enum SharedEnumYesNo
 {
-    [ArgsValue("yes")]
+    [ArgsEnumValue("yes")]
     Yes,
-    [ArgsValue("no")]
+    [ArgsEnumValue("no")]
     No,
 }
 

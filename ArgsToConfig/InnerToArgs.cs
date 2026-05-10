@@ -71,8 +71,8 @@ internal static class InnerToArgs
                 {
                     // Per-member ArgsHasParameter (no ValueFor)
                     var mr = rule.EnumMemberRules.FirstOrDefault(m => m.Value.Equals(enumVal));
-                    if (mr?.ArgsValue is not null)
-                        result.Add(mr.ArgsValue[0]);
+                    if (mr?.ArgsEnumValue is not null)
+                        result.Add(mr.ArgsEnumValue[0]);
                 }
                 else
                 {
@@ -81,7 +81,7 @@ internal static class InnerToArgs
                     if (mr is not null)
                     {
                         result.Add(rule.ValueForNames[0]);
-                        result.Add(mr.ArgsValue?[0] ?? mr.Value.ToString()!);
+                        result.Add(mr.ArgsEnumValue?[0] ?? mr.Value.ToString()!);
                     }
                 }
                 continue;
@@ -167,14 +167,14 @@ internal static class InnerToArgs
                 if (rule.ValueForNames is not null)
                 {
                     var values = string.Join(" | ", rule.EnumMemberRules
-                        .Select(m => m.ArgsValue?[0] ?? m.Value.ToString()!));
+                        .Select(m => m.ArgsEnumValue?[0] ?? m.Value.ToString()!));
                     var token = $"{rule.ValueForNames[0]} ({values})";
                     tokens.Add(rule.ValueForOptional ? $"[{token}]" : $"<{token}>");
                 }
                 else
                 {
                     var names = string.Join(" | ", rule.EnumMemberRules
-                        .Select(m => m.ArgsValue?[0])
+                        .Select(m => m.ArgsEnumValue?[0])
                         .Where(n => n is not null));
                     if (!string.IsNullOrEmpty(names))
                         tokens.Add($"[{names}]");

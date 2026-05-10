@@ -85,11 +85,11 @@ internal static class InnerToObject
                     var members = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
                     enumMemberRules = members.Select(m =>
                     {
-                        var mVal = m.GetCustomAttribute<ArgsValueAttribute>();
+                        var mVal = m.GetCustomAttribute<ArgsEnumValueAttribute>();
                         return new EnumMemberRule
                         {
                             Value = m.GetValue(null)!,
-                            ArgsValue = mVal?.GetValues
+                            ArgsEnumValue = mVal?.GetValues
                         };
                     }).ToArray();
 
@@ -452,8 +452,8 @@ internal static class InnerToObject
                 foreach (var mr in rule.EnumMemberRules)
                 {
                     // Also register dash-prefixed ArgsValue strings as direct flag entries
-                    if (mr.ArgsValue is not null)
-                        foreach (var n in mr.ArgsValue)
+                    if (mr.ArgsEnumValue is not null)
+                        foreach (var n in mr.ArgsEnumValue)
                             if (n.Trim().StartsWith('-'))
                                 argIndex[n.Trim()] = (rule, null, mr);
                 }
@@ -569,7 +569,7 @@ internal static class InnerToObject
                     var enumMatched = false;
                     foreach (var mr in rule.EnumMemberRules)
                     {
-                        var matched = mr.ArgsValue?.Any(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase)) ?? 
+                        var matched = mr.ArgsEnumValue?.Any(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase)) ?? 
                                       string.Equals(mr.Value.ToString(), value, StringComparison.OrdinalIgnoreCase);
                         if (!matched)
                             continue;
@@ -688,7 +688,7 @@ internal static class InnerToObject
                     var enumMatched = false;
                     foreach (var mr in rule.EnumMemberRules)
                     {
-                        var matched = mr.ArgsValue?.Any(v => string.Equals(v, envValue, StringComparison.OrdinalIgnoreCase)) ?? 
+                        var matched = mr.ArgsEnumValue?.Any(v => string.Equals(v, envValue, StringComparison.OrdinalIgnoreCase)) ?? 
                                       string.Equals(mr.Value.ToString(), envValue, StringComparison.OrdinalIgnoreCase);
                         if (!matched)
                             continue;
@@ -732,7 +732,7 @@ internal static class InnerToObject
             {
                 foreach (var mr in rule.EnumMemberRules)
                 {
-                    var defaultMatched = mr.ArgsValue?.Any(v => string.Equals(v, rule.ValueForDefault, StringComparison.OrdinalIgnoreCase)) ?? 
+                    var defaultMatched = mr.ArgsEnumValue?.Any(v => string.Equals(v, rule.ValueForDefault, StringComparison.OrdinalIgnoreCase)) ?? 
                                          string.Equals(mr.Value.ToString(), rule.ValueForDefault, StringComparison.OrdinalIgnoreCase);
                     if (!defaultMatched)
                         continue;
@@ -765,8 +765,8 @@ internal static class InnerToObject
                 {
                     foreach (var mr in rule.EnumMemberRules)
                     {
-                        if (mr.ArgsValue is null) continue;
-                        if (!mr.ArgsValue.Any(v => !v.Trim().StartsWith('-')
+                        if (mr.ArgsEnumValue is null) continue;
+                        if (!mr.ArgsEnumValue.Any(v => !v.Trim().StartsWith('-')
                                && string.Equals(v.Trim(), positional.value, StringComparison.OrdinalIgnoreCase))) continue;
                         var ep = SetTracked(rule.Property, mr.Value, positional.index);
                         if (ep is not null) return (ep, positional.index);
@@ -1002,8 +1002,8 @@ internal static class InnerToObject
             if (rule.EnumMemberRules is not null)
                 foreach (var mr in rule.EnumMemberRules)
                 {
-                    if (mr.ArgsValue is not null && rule.ValueForNames is null)
-                        foreach (var n in mr.ArgsValue)
+                    if (mr.ArgsEnumValue is not null && rule.ValueForNames is null)
+                        foreach (var n in mr.ArgsEnumValue)
                             if (n.Trim().StartsWith('-'))
                                 names.Add(n.Trim());
                 }
@@ -1027,8 +1027,8 @@ internal static class InnerToObject
                 foreach (var mr in rule.EnumMemberRules)
                 {
                     // ArgsValue dash alternatives on unnamed enum members
-                    if (mr.ArgsValue is not null && rule.ValueForNames is null)
-                        CollectSingleCharFlags(mr.ArgsValue.Select(v => v.Trim()).ToArray(), singleCharFlags, null);
+                    if (mr.ArgsEnumValue is not null && rule.ValueForNames is null)
+                        CollectSingleCharFlags(mr.ArgsEnumValue.Select(v => v.Trim()).ToArray(), singleCharFlags, null);
                 }
         }
 

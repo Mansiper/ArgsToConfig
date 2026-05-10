@@ -19,7 +19,7 @@ internal class EnvVarExample
 
 internal enum EnvVarFormat
 {
-    [ArgsValue("json")] Json,
-    [ArgsValue("xml")] Xml,
-    [ArgsValue("csv")] Csv,
+    [ArgsEnumValue("json")] Json,
+    [ArgsEnumValue("xml")] Xml,
+    [ArgsEnumValue("csv")] Csv,
 }

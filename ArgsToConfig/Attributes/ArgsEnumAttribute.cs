@@ -4,7 +4,7 @@
 namespace ArgsToConfig.Attributes;
 
 /// <summary>
-/// Maps the argument value to an enum member using the values defined by <see cref="ArgsValueAttribute"/> on enum members.
+/// Maps the argument value to an enum member using the values defined by <see cref="ArgsEnumValueAttribute"/> on enum members.
 /// Multiple argument names can be specified by separating them with <c>|</c>.
 /// </summary>
 /// <remarks>Works only with enums.</remarks>
@@ -15,7 +15,7 @@ public class ArgsEnumAttribute : Attribute
 
     /// <summary>Gets or sets a value indicating whether the argument is optional. When <see langword="true"/> and the argument is absent, <see cref="DefaultValue"/> is used.</summary>
     public bool Optional { get; set; }
-    /// <summary>Gets or sets the default enum member name (as defined by <see cref="ArgsValueAttribute"/>) used when the argument is absent and <see cref="Optional"/> is <see langword="true"/>.</summary>
+    /// <summary>Gets or sets the default enum member name (as defined by <see cref="ArgsEnumValueAttribute"/>) used when the argument is absent and <see cref="Optional"/> is <see langword="true"/>.</summary>
     public string? DefaultValue { get; set; }
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }

@@ -8,14 +8,14 @@ namespace ArgsToConfig.Attributes;
 /// </summary>
 /// <remarks>Works with enum members only.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsValueAttribute : Attribute
+public class ArgsEnumValueAttribute : Attribute
 {
     private readonly string name;
 
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
-    public ArgsValueAttribute(string name) =>
+    public ArgsEnumValueAttribute(string name) =>
         this.name = name;
 
     internal string[] GetValues => name.Split('|');

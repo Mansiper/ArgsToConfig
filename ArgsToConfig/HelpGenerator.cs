@@ -114,7 +114,7 @@ public static class HelpGenerator
                 foreach (var member in members)
                 {
                     var mHas = member.GetCustomAttribute<ArgsHasParameterAttribute>();
-                    var mVal = member.GetCustomAttribute<ArgsValueAttribute>();
+                    var mVal = member.GetCustomAttribute<ArgsEnumValueAttribute>();
                     var memberDesc = mHas?.Description ?? mVal?.Description;
                     if (memberDesc is null) continue;
                     var memberName = mHas?.GetNames is { } n ? string.Join(", ", n) : (mVal?.GetValues is { } v ? string.Join(", ", v) : member.Name.ToLower());

@@ -3,6 +3,6 @@
 internal sealed class EnumMemberRule
 {
     public object Value { get; init; } = null!;
-    // ArgsValue on enum member
-    public string[]? ArgsValue { get; init; }
+    // ArgsEnumValue on enum member
+    public string[]? ArgsEnumValue { get; init; }
 }

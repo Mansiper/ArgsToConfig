@@ -35,43 +35,43 @@ internal interface ISimplePipelineCommand;
 
 internal enum AppCommand
 {
-    [ArgsValue("run")]
+    [ArgsEnumValue("run")]
     Run,
-    [ArgsValue("start")]
+    [ArgsEnumValue("start")]
     Start,
-    [ArgsValue("quit")]
+    [ArgsEnumValue("quit")]
     Quit,
 }
 
 internal enum CommandAMode
 {
-    [ArgsValue("-x")]
+    [ArgsEnumValue("-x")]
     X,
-    [ArgsValue("-y")]
+    [ArgsEnumValue("-y")]
     Y,
-    [ArgsValue("-z")]
+    [ArgsEnumValue("-z")]
     Z,
 }
 
 internal enum CommandBTarget
 {
-    [ArgsValue("all")]
+    [ArgsEnumValue("all")]
     All,
-    [ArgsValue("partial")]
+    [ArgsEnumValue("partial")]
     Partial,
-    [ArgsValue("half")]
+    [ArgsEnumValue("half")]
     Half,
 }
 
 internal enum CommandCSub
 {
-    [ArgsValue("--sub1")]
+    [ArgsEnumValue("--sub1")]
     Sub1,
-    [ArgsValue("--sub2")]
+    [ArgsEnumValue("--sub2")]
     Sub2,
-    [ArgsValue("--sub3")]
+    [ArgsEnumValue("--sub3")]
     Sub3,
-    [ArgsValue("--sub4")]
+    [ArgsEnumValue("--sub4")]
     Sub4,
 }
 
