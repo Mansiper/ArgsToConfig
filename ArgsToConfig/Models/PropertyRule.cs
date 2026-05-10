@@ -44,9 +44,9 @@ internal sealed class PropertyRule
     public bool IsPipeline { get; init; }
     public Type? PipelineElementType { get; init; }
 
-    // ArgsSplit (split value into tuple components)
-    public string[]? TupleDividers { get; init; }
-    public bool TuplePartsDividers { get; init; }
+    // ArgsSplit (split value into tuple, collection, or dictionary components)
+    public string[]? SplitDividers { get; init; }
+    public bool SplitPartsDividers { get; init; }
 
     // Implicit positional (no attributes – filled from positional args in order)
     public bool IsImplicitPositional { get; init; }

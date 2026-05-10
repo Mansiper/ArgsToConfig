@@ -120,8 +120,8 @@ internal static class InnerToObject
                 EnumMemberRules = enumMemberRules,
                 IsEnumFlags = argsEnum?.Flags ?? false,
                 PositionalIndex = positional?.GetPosition ?? -1,
-                TupleDividers = argsSplit?.GetDividers,
-                TuplePartsDividers = argsSplit?.PartsDividers ?? false,
+                SplitDividers = argsSplit?.GetDividers,
+                SplitPartsDividers = argsSplit?.PartsDividers ?? false,
                 IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
                     && !isEnum && after is null && !isPathspec && positional is null,
                 ConvertorType = convertor?.GetConvertorType,
@@ -588,10 +588,10 @@ internal static class InnerToObject
 
             if (rule is { IsEnum: true, EnumMemberRules: not null })
             {
-                if (rule.IsEnumFlags && rule.TupleDividers is not null && value is not null)
+                if (rule.IsEnumFlags && rule.SplitDividers is not null && value is not null)
                 {
                     // Split value by dividers and OR each matched enum member
-                    var (splitErr, splitParts) = SplitStringByDividers(value, rule.TupleDividers);
+                    var (splitErr, splitParts) = SplitStringByDividers(value, rule.SplitDividers);
                     if (splitErr is not null) return (splitErr, i);
                     foreach (var part in splitParts!)
                     {
@@ -658,9 +658,9 @@ internal static class InnerToObject
                     return (ex.Message, i);
                 }
             }
-            else if (value is not null && rule.TupleDividers is not null && IsDictionaryProperty(rule.Property.PropertyType, out var dictKeyType, out var dictValueType))
+            else if (value is not null && rule.SplitDividers is not null && IsDictionaryProperty(rule.Property.PropertyType, out var dictKeyType, out var dictValueType))
             {
-                var (dictEntryErr, dictEntry) = ConvertDictionaryEntry(value, dictKeyType, dictValueType, rule.TupleDividers, rule.TuplePartsDividers);
+                var (dictEntryErr, dictEntry) = ConvertDictionaryEntry(value, dictKeyType, dictValueType, rule.SplitDividers, rule.SplitPartsDividers);
                 if (dictEntryErr is not null) return (dictEntryErr, i);
                 if (!pendingDictionaries.TryGetValue(rule.Property.Name, out var pendingDict))
                     pendingDict = (rule, [], flagIndex);
@@ -674,17 +674,17 @@ internal static class InnerToObject
                 // Multi-value collection: string[], T[], List<T>, HashSet<T>, etc.
                 if (!pendingCollections.TryGetValue(rule.Property.Name, out var pending))
                     pending = (rule, [], flagIndex);
-                if (rule.TupleDividers is not null && elementType.IsGenericType)
+                if (rule.SplitDividers is not null && elementType.IsGenericType)
                 {
                     // Collection of tuples: each flag occurrence is split into one tuple element
-                    var (tupleErr, tupleResult) = ConvertTupleValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers);
+                    var (tupleErr, tupleResult) = ConvertTupleValue(value, elementType, rule.SplitDividers, rule.SplitPartsDividers);
                     if (tupleErr is not null) return (tupleErr, i);
                     pending.Items.Add(tupleResult!);
                 }
-                else if (rule.TupleDividers is not null && !elementType.IsGenericType)
+                else if (rule.SplitDividers is not null && !elementType.IsGenericType)
                 {
                     // Collection of plain type: a single value is split by dividers into multiple elements
-                    var (splitErr, splitItems) = ConvertCollectionValue(value, elementType, rule.TupleDividers, rule.TuplePartsDividers);
+                    var (splitErr, splitItems) = ConvertCollectionValue(value, elementType, rule.SplitDividers, rule.SplitPartsDividers);
                     if (splitErr is not null) return (splitErr, i);
                     foreach (var item in splitItems!)
                         pending.Items.Add(item);
@@ -712,9 +712,9 @@ internal static class InnerToObject
                     if (pathErr is not null) return (pathErr, i);
                 }
                 object converted;
-                if (rule.TupleDividers is not null && propType.IsGenericType)
+                if (rule.SplitDividers is not null && propType.IsGenericType)
                 {
-                    var (tupleErr, tupleResult) = ConvertTupleValue(value, propType, rule.TupleDividers, rule.TuplePartsDividers);
+                    var (tupleErr, tupleResult) = ConvertTupleValue(value, propType, rule.SplitDividers, rule.SplitPartsDividers);
                     if (tupleErr is not null) return (tupleErr, i);
                     converted = tupleResult!;
                 }

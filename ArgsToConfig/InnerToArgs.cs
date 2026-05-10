@@ -22,7 +22,8 @@ internal static class InnerToArgs
             // ── ArgsObject ───────────────────────────────────────────────────
             if (rule.IsObject)
             {
-                deferred.Add(rule.ObjectRootName![0]);
+                if (rule.ObjectRootName is not null)
+                    deferred.Add(rule.ObjectRootName[0]);
                 BuildArgs(rawValue, deferred);
                 continue;
             }
@@ -33,6 +34,9 @@ internal static class InnerToArgs
                 var items = (System.Collections.IEnumerable)rawValue;
                 foreach (var item in items)
                 {
+                    if (item is null)
+                        continue;
+
                     var cmdAttr = item.GetType().GetCustomAttribute<ArgsPipelineCommandAttribute>();
                     if (cmdAttr is not null)
                         deferred.Add(cmdAttr.GetName);
@@ -185,9 +189,9 @@ internal static class InnerToArgs
             // ── ArgsValueFor ─────────────────────────────────────────────────
             if (rule.ValueForNames is not null)
             {
-                var valueRepr = rule.TupleDividers is not null && InnerToObject.IsDictionaryProperty(propType, out var dkType, out _)
-                    ? $"<key>{rule.TupleDividers[0]}<{dkType.Name.ToLowerInvariant()}>"
-                    : rule.TupleDividers is not null
+                var valueRepr = rule.SplitDividers is not null && InnerToObject.IsDictionaryProperty(propType, out _, out var dvType)
+                    ? $"<key>{rule.SplitDividers[0]}<{dvType.Name.ToLowerInvariant()}>"
+                    : rule.SplitDividers is not null
                         ? BuildTupleValueRepr(rule)
                         : $"<{propName}>";
                 var token = $"{rule.ValueForNames[0]} {valueRepr}";
@@ -214,7 +218,7 @@ internal static class InnerToArgs
         var isCollection = InnerToObject.IsCollectionProperty(underlyingType, out var elementType);
         var tupleType = isCollection ? elementType : underlyingType;
         var typeArgs = tupleType.GetGenericArguments();
-        var dividers = rule.TupleDividers!;
+        var dividers = rule.SplitDividers!;
 
         var sb = new System.Text.StringBuilder();
         sb.Append($"<{typeArgs[0].Name.ToLowerInvariant()}>");
@@ -237,7 +241,7 @@ internal static class InnerToArgs
 
         if (InnerToObject.IsDictionaryProperty(propType, out var keyType, out var valueType))
         {
-            var divider = rule.TupleDividers?[0] ?? "=";
+            var divider = rule.SplitDividers?[0] ?? "=";
             var items = (System.Collections.IEnumerable)value;
             var result = new List<string>();
             foreach (System.Collections.DictionaryEntry entry in (System.Collections.IDictionary)items)
@@ -261,7 +265,7 @@ internal static class InnerToArgs
     private static string SerializeDictionaryValue(object? value, Type valueType, PropertyRule rule)
     {
         if (value is null) return string.Empty;
-        var dividers = rule.TupleDividers is { Length: > 1 } d ? d[1..] : rule.TupleDividers;
+        var dividers = rule.SplitDividers is { Length: > 1 } d ? d[1..] : rule.SplitDividers;
         if (dividers is not null && valueType.IsValueType && valueType.IsGenericType)
         {
             // Tuple value
@@ -282,13 +286,13 @@ internal static class InnerToArgs
 
     private static string SerializeScalar(object value, Type type, PropertyRule rule)
     {
-        if (rule.TupleDividers is not null && type.IsValueType && type.IsGenericType)
+        if (rule.SplitDividers is not null && type.IsValueType && type.IsGenericType)
         {
             var fields = type.GetFields();
             var parts = new string[fields.Length];
             for (var i = 0; i < fields.Length; i++)
                 parts[i] = fields[i].GetValue(value)?.ToString() ?? string.Empty;
-            return string.Join(rule.TupleDividers[0], parts);
+            return string.Join(rule.SplitDividers[0], parts);
         }
 
         return value switch
