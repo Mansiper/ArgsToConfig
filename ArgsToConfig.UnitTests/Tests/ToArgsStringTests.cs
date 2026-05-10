@@ -191,20 +191,20 @@ public class ToArgsStringTests
         result.Should().Contain("[-z]");
     }
 
-    // ── ArgsTuple ─────────────────────────────────────────────────────────────
+    // ── ArgsSplit ─────────────────────────────────────────────────────────────
 
     [Test]
-    public void Tuple_SingleDivider_Required_ShouldShowComponentTypesWithDivider()
+    public void Split_SingleDivider_Required_ShouldShowComponentTypesWithDivider()
     {
-        // FixupCommit: (string, string) with [ArgsTuple(":")]  — required (optional=false)
+        // FixupCommit: (string, string) with [ArgsSplit(":")]  — required (optional=false)
         var result = ArgumentsReader.ToArgsString<GitCommitExample>();
         result.Should().Contain("<--fixup <string>:<string>>");
     }
 
     [Test]
-    public void Tuple_MultiDivider_Collection_Optional_ShouldShowComponentTypesWithDividersAndEllipsis()
+    public void Split_MultiDivider_Collection_Optional_ShouldShowComponentTypesWithDividersAndEllipsis()
     {
-        // Trailer: List<(string, int)> with [ArgsTuple("=", ":")] — required (no optional=true)
+        // Trailer: List<(string, int)> with [ArgsSplit("=", ":")] — required (no optional=true)
         var result = ArgumentsReader.ToArgsString<GitCommitExample>();
         result.Should().Contain("<--trailer <string>=|:<int32>...>");
     }

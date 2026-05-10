@@ -42,7 +42,7 @@ internal sealed class PropertyRule
     public bool IsPipeline { get; init; }
     public Type? PipelineElementType { get; init; }
 
-    // ArgsTuple (split value into tuple components)
+    // ArgsSplit (split value into tuple components)
     public string[]? TupleDividers { get; init; }
     public bool TuplePartsDividers { get; init; }
 

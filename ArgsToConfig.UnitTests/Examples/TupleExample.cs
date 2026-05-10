@@ -16,30 +16,35 @@ namespace ArgsToConfig.UnitTests.Examples;
 internal class TupleExample
 {
     [ArgsValueFor("--dsc")]
-    [ArgsTuple("_", ".", PartsDividers = true)]
+    [ArgsSplit("_", ".", PartsDividers = true)]
     public (double, string, char)? DoubleStringChar { get; set; }
 
     [ArgsValueFor("--bib")]
-    [ArgsTuple(":", ":", PartsDividers = true)]
+    [ArgsSplit(":", ":", PartsDividers = true)]
     public (bool, int, byte)? BoolIntByte { get; set; }
 
     [ArgsValueFor("--idcb")]
-    [ArgsTuple(";", ";", ";", PartsDividers = true)]
+    [ArgsSplit(";", ";", ";", PartsDividers = true)]
     public (int, double, char, bool)? IntDoubleCharBool { get; set; }
 
     [ArgsValueFor("--mix")]
-    [ArgsTuple("|", "|", "|", "|", PartsDividers = true)]
+    [ArgsSplit("|", "|", "|", "|", PartsDividers = true)]
     public (string, byte, double, char, bool)? Mix { get; set; }
 
     [ArgsValueFor("--sc2")]
-    [ArgsTuple(";")]
+    [ArgsSplit(";")]
     public (string, int)? StringInt { get; set; }
 
     [ArgsValueFor("--i3")]
-    [ArgsTuple(",")]
+    [ArgsSplit(",")]
     public (int, int, int)? ThreeInts { get; set; }
 
     [ArgsValueFor("--alt")]
-    [ArgsTuple("-", ":")]
+    [ArgsSplit("-", ":")]
     public (string, int, string)? AltDividers { get; set; }
+
+    // Collection of tuples: --points "1,2" --points "3,4"  => (int, int)[]
+    [ArgsValueFor("--points")]
+    [ArgsSplit(",")]
+    public (int, int)[]? Points { get; set; }
 }

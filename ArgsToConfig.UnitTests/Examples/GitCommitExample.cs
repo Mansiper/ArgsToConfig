@@ -35,7 +35,7 @@ internal class GitCommitExample
     public bool DryRun { get; set; }
 
     [ArgsValueFor("--fixup", Description = "Create a new commit which fixes a previous commit. Format: (amend|reword):<commit>")]
-    [ArgsTuple(":")]
+    [ArgsSplit(":")]
     public (string, string)? FixupCommit { get; set; }
 
     [ArgsValueFor("-F|--file", Optional = true, Description = "Take the commit message from the given file")]
@@ -82,7 +82,7 @@ internal class GitCommitExample
     public bool PathspecFileNul { get; set; }
 
     [ArgsValueFor("--trailer", Description = "Append a trailer token=value or token:value to the commit message. Can be repeated.")]
-    [ArgsTuple("=", ":")]
+    [ArgsSplit("=", ":")]
     public List<(string, int)>? Trailer { get; set; }
 
     [ArgsValueFor("-S", Optional = true, Description = "GPG-sign the commit using the given key ID (requires --trailer)")]

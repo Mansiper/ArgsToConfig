@@ -209,10 +209,10 @@ public class ToArgsTests
         parsed.Should().BeEquivalentTo(obj);
     }
 
-    // ── ArgsTuple ─────────────────────────────────────────────────────────────
+    // ── ArgsSplit ─────────────────────────────────────────────────────────────
 
     [Test]
-    public void Tuple_ShouldEmitJoinedValue()
+    public void Split_ShouldEmitJoinedValue()
     {
         var obj = new TupleExample { StringInt = ("hello", 42) };
         var args = ArgumentsReader.ToArgs(obj);
@@ -220,7 +220,7 @@ public class ToArgsTests
     }
 
     [Test]
-    public void Tuple_ShouldRoundtrip()
+    public void Split_ShouldRoundtrip()
     {
         var obj = new TupleExample
         {

@@ -185,9 +185,11 @@ internal static class InnerToArgs
             // ── ArgsValueFor ─────────────────────────────────────────────────
             if (rule.ValueForNames is not null)
             {
-                var valueRepr = rule.TupleDividers is not null
-                    ? BuildTupleValueRepr(rule)
-                    : $"<{propName}>";
+                var valueRepr = rule.TupleDividers is not null && InnerToObject.IsDictionaryProperty(propType, out var dkType, out _)
+                    ? $"<key>{rule.TupleDividers[0]}<{dkType.Name.ToLowerInvariant()}>"
+                    : rule.TupleDividers is not null
+                        ? BuildTupleValueRepr(rule)
+                        : $"<{propName}>";
                 var token = $"{rule.ValueForNames[0]} {valueRepr}";
                 tokens.Add(rule.ValueForOptional ? $"[{token}]" : $"<{token}>");
                 continue;
@@ -233,6 +235,20 @@ internal static class InnerToArgs
     {
         var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
 
+        if (InnerToObject.IsDictionaryProperty(propType, out var keyType, out var valueType))
+        {
+            var divider = rule.TupleDividers?[0] ?? "=";
+            var items = (System.Collections.IEnumerable)value;
+            var result = new List<string>();
+            foreach (System.Collections.DictionaryEntry entry in (System.Collections.IDictionary)items)
+            {
+                var keyStr = entry.Key?.ToString() ?? string.Empty;
+                var valStr = SerializeDictionaryValue(entry.Value, valueType, rule);
+                result.Add($"{keyStr}{divider}{valStr}");
+            }
+            return result;
+        }
+
         if (InnerToObject.IsCollectionProperty(propType, out var elementType))
         {
             var items = (System.Collections.IEnumerable)value;
@@ -240,6 +256,28 @@ internal static class InnerToArgs
         }
 
         return [SerializeScalar(value, propType, rule)];
+    }
+
+    private static string SerializeDictionaryValue(object? value, Type valueType, PropertyRule rule)
+    {
+        if (value is null) return string.Empty;
+        var dividers = rule.TupleDividers is { Length: > 1 } d ? d[1..] : rule.TupleDividers;
+        if (dividers is not null && valueType.IsValueType && valueType.IsGenericType)
+        {
+            // Tuple value
+            var fields = valueType.GetFields();
+            var parts = new string[fields.Length];
+            for (var i = 0; i < fields.Length; i++)
+                parts[i] = fields[i].GetValue(value)?.ToString() ?? string.Empty;
+            return string.Join(dividers[0], parts);
+        }
+        if (InnerToObject.IsCollectionProperty(valueType, out var elemType))
+        {
+            var divider = dividers?[0] ?? ",";
+            var items = (System.Collections.IEnumerable)value;
+            return string.Join(divider, items.Cast<object>().Select(item => item?.ToString() ?? string.Empty));
+        }
+        return SerializeScalar(value, valueType, rule);
     }
 
     private static string SerializeScalar(object value, Type type, PropertyRule rule)

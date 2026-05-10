@@ -29,7 +29,7 @@ internal static class InnerToObject
             var valueFor = prop.GetCustomAttribute<ArgsValueForAttribute>();
             var valueForBool = prop.GetCustomAttribute<ArgsValueForBoolAttribute>();
             var argsEnum = prop.GetCustomAttribute<ArgsEnumAttribute>();
-            var argsTuple = prop.GetCustomAttribute<ArgsTupleAttribute>();
+            var argsSplit = prop.GetCustomAttribute<ArgsSplitAttribute>();
             var isEnum = argsEnum is not null;
             var after = prop.GetCustomAttribute<ArgsAfterAttribute>();
             var ifSet = prop.GetCustomAttribute<ArgsIfSetAttribute>();
@@ -119,8 +119,8 @@ internal static class InnerToObject
                 IsPathspec = isPathspec,
                 EnumMemberRules = enumMemberRules,
                 PositionalIndex = positional?.GetPosition ?? -1,
-                TupleDividers = argsTuple?.GetDividers,
-                TuplePartsDividers = argsTuple?.PartsDividers ?? false,
+                TupleDividers = argsSplit?.GetDividers,
+                TuplePartsDividers = argsSplit?.PartsDividers ?? false,
                 IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
                     && !isEnum && after is null && !isPathspec && positional is null,
                 ConvertorType = convertor?.GetConvertorType,
@@ -430,6 +430,8 @@ internal static class InnerToObject
         var positionalArgs = new List<(int index, string value)>();
         // Accumulates items for multi-value collection properties (string[], List<T>, T[], etc.)
         var pendingCollections = new Dictionary<string, (PropertyRule Rule, List<object> Items, int LastIndex)>();
+        // Accumulates key-value pairs for dictionary properties with [ArgsSplit]
+        var pendingDictionaries = new Dictionary<string, (PropertyRule Rule, List<(object Key, object Value)> Pairs, int LastIndex)>();
 
         // Build a flat lookup: arg-name → (rule, forced bool for ValueForBool, enum member for enum flags)
         var argIndex = new Dictionary<string, (PropertyRule Rule, bool? BoolValue, EnumMemberRule? Member)>(StringComparer.Ordinal);
@@ -596,6 +598,17 @@ internal static class InnerToObject
                     return (ex.Message, i);
                 }
             }
+            else if (value is not null && rule.TupleDividers is not null && IsDictionaryProperty(rule.Property.PropertyType, out var dictKeyType, out var dictValueType))
+            {
+                var (dictEntryErr, dictEntry) = ConvertDictionaryEntry(value, dictKeyType, dictValueType, rule.TupleDividers, rule.TuplePartsDividers);
+                if (dictEntryErr is not null) return (dictEntryErr, i);
+                if (!pendingDictionaries.TryGetValue(rule.Property.Name, out var pendingDict))
+                    pendingDict = (rule, [], flagIndex);
+                pendingDict.Pairs.Add(dictEntry!.Value);
+                pendingDictionaries[rule.Property.Name] = (pendingDict.Rule, pendingDict.Pairs, flagIndex);
+                setFieldNames.Add(rule.Property.Name);
+                consumedAt[rule.Property.Name] = flagIndex;
+            }
             else if (value is not null && IsCollectionProperty(rule.Property.PropertyType, out var elementType))
             {
                 // Multi-value collection: string[], T[], List<T>, HashSet<T>, etc.
@@ -655,6 +668,14 @@ internal static class InnerToObject
             var (matErr, matResult) = MaterializeCollection(colRule.Property.PropertyType, items);
             if (matErr is not null) return (matErr, null);
             colRule.Property.SetValue(obj, matResult);
+        }
+
+        // ── Finalize pending dictionaries
+        foreach (var (_, (dictRule, pairs, _)) in pendingDictionaries)
+        {
+            var (matErr, matResult) = MaterializeDictionary(dictRule.Property.PropertyType, pairs);
+            if (matErr is not null) return (matErr, null);
+            dictRule.Property.SetValue(obj, matResult);
         }
 
         // ── Environment variable fallback ─────────────────────────────────────
@@ -1166,6 +1187,13 @@ internal static class InnerToObject
     {
         var underlying = UnwrapNullable(type);
 
+        // Dictionaries are not treated as collections here
+        if (IsDictionaryProperty(type, out _, out _))
+        {
+            elementType = type;
+            return false;
+        }
+
         // Array: T[]
         if (underlying.IsArray)
         {
@@ -1188,6 +1216,100 @@ internal static class InnerToObject
 
         elementType = type;
         return false;
+    }
+
+    internal static bool IsDictionaryProperty(Type type, out Type keyType, out Type valueType)
+    {
+        var underlying = UnwrapNullable(type);
+        if (underlying.IsGenericType)
+        {
+            var def = underlying.GetGenericTypeDefinition();
+            if (def == typeof(Dictionary<,>) || def == typeof(IDictionary<,>) ||
+                def == typeof(IReadOnlyDictionary<,>) || def == typeof(SortedDictionary<,>))
+            {
+                var typeArgs = underlying.GetGenericArguments();
+                keyType = typeArgs[0];
+                valueType = typeArgs[1];
+                return true;
+            }
+        }
+        keyType = type;
+        valueType = type;
+        return false;
+    }
+
+    private static (string? error, (object Key, object Value)?) ConvertDictionaryEntry(
+        string raw, Type keyType, Type valueType, string[] dividers, bool partsDividers)
+    {
+        if (raw is ['"', _, ..] && raw[^1] == '"')
+            raw = raw[1..^1];
+
+        var keyDivider = dividers[0];
+        var idx = raw.IndexOf(keyDivider, StringComparison.Ordinal);
+        if (idx < 0)
+            return ($"Expected key-value divider '{keyDivider}' in value '{raw}'.", null);
+
+        var keyStr = raw[..idx];
+        var valueStr = raw[(idx + keyDivider.Length)..];
+
+        var (keyErr, keyResult) = ConvertValue(keyStr, keyType);
+        if (keyErr is not null) return (keyErr, null);
+
+        var valueDividers = dividers.Length > 1 ? dividers[1..] : dividers;
+
+        object valueResult;
+        if (valueType.IsValueType && valueType.IsGenericType)
+        {
+            // Tuple value
+            var (valErr, valResult) = ConvertTupleValue(valueStr, valueType, valueDividers, partsDividers);
+            if (valErr is not null) return (valErr, null);
+            valueResult = valResult!;
+        }
+        else if (IsCollectionProperty(valueType, out var elemType))
+        {
+            // Collection value: split by first remaining divider
+            var parts = valueStr.Split(valueDividers[0]);
+            var items = new List<object>(parts.Length);
+            foreach (var part in parts)
+            {
+                var (elemErr, elemResult) = ConvertValue(part, elemType);
+                if (elemErr is not null) return (elemErr, null);
+                items.Add(elemResult!);
+            }
+            var (matErr, matResult) = MaterializeCollection(valueType, items);
+            if (matErr is not null) return (matErr, null);
+            valueResult = matResult!;
+        }
+        else
+        {
+            var (valErr, valResult) = ConvertValue(valueStr, valueType);
+            if (valErr is not null) return (valErr, null);
+            valueResult = valResult!;
+        }
+
+        return (null, (keyResult!, valueResult));
+    }
+
+    private static (string? error, object? result) MaterializeDictionary(
+        Type propType, List<(object Key, object Value)> pairs)
+    {
+        var underlying = UnwrapNullable(propType);
+        var typeArgs = underlying.GetGenericArguments();
+        var keyType = typeArgs[0];
+        var valueType = typeArgs[1];
+
+        var def = underlying.GetGenericTypeDefinition();
+        Type concreteType;
+        if (def == typeof(SortedDictionary<,>))
+            concreteType = underlying;
+        else
+            concreteType = typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
+
+        var instance = Activator.CreateInstance(concreteType)!;
+        var addMethod = typeof(IDictionary<,>).MakeGenericType(keyType, valueType).GetMethod("Add")!;
+        foreach (var (key, value) in pairs)
+            addMethod.Invoke(instance, [key, value]);
+        return (null, instance);
     }
 
     private static (string? error, object? result) MaterializeCollection(Type propType, List<object> items)

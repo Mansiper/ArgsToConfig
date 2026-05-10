@@ -337,4 +337,55 @@ public class TupleTests
         errors.Should().NotBeNull();
         position.Should().Be(2);
     }
+
+    // ── Collection of tuples ────────────────────────────────────────────────
+
+    [Test]
+    public void Points_MultipleValues_ShouldSucceed()
+    {
+        // Arrange
+        var args = new[] { "--points", "1,2", "--points", "3,4", "--points", "5,6" };
+
+        var expected = new TupleExample
+        {
+            Points = [(1, 2), (3, 4), (5, 6)]
+        };
+
+        // Act
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void Points_SingleValue_ShouldSucceed()
+    {
+        // Arrange
+        var args = new[] { "--points", "10,20" };
+
+        var expected = new TupleExample
+        {
+            Points = [(10, 20)]
+        };
+
+        // Act
+        var (result, _, _) = ArgumentsReader.ToObject<TupleExample>(args);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void Points_MissingDivider_ShouldFail()
+    {
+        // Arrange
+        var args = new[] { "--points", "1020" }; // missing ","
+
+        // Act
+        var (_, errors, _) = ArgumentsReader.ToObject<TupleExample>(args);
+
+        // Assert
+        errors.Should().NotBeNull();
+    }
 }

@@ -138,7 +138,7 @@ Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) 
 | `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand object when the named keyword is encountered; supports **classes, records, and structs** with arbitrary nesting depth |
 | `[ArgsPipeline]` | any collection of an interface | collects an ordered sequence of pipeline command objects that all implement the property's element interface |
 | `[ArgsPipelineCommand("name")]` | class | registers a class as a named pipeline command; the class must implement the interface declared on the `[ArgsPipeline]` property |
-| `[ArgsTuple("div1", ...)]` | tuple property | splits a single argument value into the elements of a value tuple using the supplied dividers; supports a cyclic (default) and a per-part mode via `PartsDividers` |
+| `[ArgsSplit("div1", ...)]` | tuple, `Dictionary<TKey, TValue>`, or collection-of-tuples property | splits a single argument value into parts using the supplied dividers; the first divider separates key from value in dictionaries; for tuples supports a cyclic (default) and a per-part mode via `PartsDividers`; repeated flags populate collections or dictionaries |
 | `[ArgsConvertor(typeof(T))]` | any property | applies a custom `IArgsConvertor` to convert the raw string value into the property's type |
 | `[ArgsAcceptFromAmong("a", "b", ...)]` | string (or collection of string) property | rejects any value that is not in the supplied set |
 | `[ArgsExistingOnlyFile]` | string property | rejects the value if it is not a path to an existing file |
@@ -372,9 +372,9 @@ class PushCommand : IPipelineCommand
 }
 ```
 
-### Tuple splitting (`[ArgsTuple]`)
+### Value splitting (`[ArgsSplit]`)
 
-`[ArgsTuple]` works together with `[ArgsValueFor]` on a **value tuple** property. It splits the single string value into the individual tuple elements using the dividers you supply.
+`[ArgsSplit]` works together with `[ArgsValueFor]` on a **value tuple** property. It splits the single string value into the individual tuple elements using the dividers you supply.
 
 #### `PartsDividers = false` (default) — cyclic dividers
 
@@ -387,20 +387,20 @@ All parts are separated using the same dividers, applied cyclically. You only ne
 class Config
 {
     [ArgsValueFor("--point")]
-    [ArgsTuple(",")]
+    [ArgsSplit(",")]
     public (int, int)? Point { get; set; }
 
     [ArgsValueFor("--rgb")]
-    [ArgsTuple(",")]
+    [ArgsSplit(",")]
     public (int, int, int)? Rgb { get; set; }
 
     [ArgsValueFor("--pair")]
-    [ArgsTuple("-")]
+    [ArgsSplit("-")]
     public (string, int)? Pair { get; set; }
 }
 ```
 
-You can also provide a short *repeating pattern* of dividers. For a 4-element tuple with `[ArgsTuple("-", ":")]`, the splits are applied as `-`, `:`, `-` (cycling back to the start).
+You can also provide a short *repeating pattern* of dividers. For a 4-element tuple with `[ArgsSplit("-", ":")]`, the splits are applied as `-`, `:`, `-` (cycling back to the start).
 
 #### `PartsDividers = true` — per-part dividers
 
@@ -412,10 +412,160 @@ Each divider separates a specific consecutive pair of parts (divider *i* sits be
 class Config
 {
     [ArgsValueFor("--dsc")]
-    [ArgsTuple("_", ".", PartsDividers = true)]
+    [ArgsSplit("_", ".", PartsDividers = true)]
     public (double, string, char)? DoubleStringChar { get; set; }
 }
 ```
+
+### Dictionary from repeated flags (`[ArgsSplit]` on `Dictionary<TKey, TValue>`)
+
+When `[ArgsSplit]` is applied to a `Dictionary<TKey, TValue>` property, the **first divider** separates the key from the value within each argument. Any **remaining dividers** apply to the value — they split a tuple value or a collection value exactly like the standalone tuple/collection behaviour. Repeated flags populate the dictionary with multiple entries.
+
+#### Simple value types
+
+```csharp
+// myapp --define KEY1=VALUE1 --define KEY2=VALUE2
+class AppConfig
+{
+    [ArgsValueFor("--define")]
+    [ArgsSplit("=")]
+    public Dictionary<string, string>? Defines { get; set; }
+}
+// config.Defines → { "KEY1": "VALUE1", "KEY2": "VALUE2" }
+
+// myapp --threshold cpu=90 --threshold memory=75
+class AppConfig
+{
+    [ArgsValueFor("--threshold")]
+    [ArgsSplit("=")]
+    public Dictionary<string, int>? Thresholds { get; set; }
+}
+// config.Thresholds → { "cpu": 90, "memory": 75 }
+```
+
+#### Tuple value
+
+Dividers after the first one split the tuple elements of the value:
+
+```csharp
+// myapp --entry item=hello,42
+class AppConfig
+{
+    [ArgsValueFor("--entry")]
+    [ArgsSplit("=", ",")]
+    public Dictionary<string, (string, int)>? Entries { get; set; }
+}
+// config.Entries → { "item": ("hello", 42) }
+```
+
+#### Collection value
+
+The second divider also works as a collection element separator:
+
+```csharp
+// myapp --tags env=prod,staging,dev --tags region=us,eu
+class AppConfig
+{
+    [ArgsValueFor("--tags")]
+    [ArgsSplit("=", ",")]
+    public Dictionary<string, string[]>? Tags { get; set; }
+}
+// config.Tags → { "env": ["prod", "staging", "dev"], "region": ["us", "eu"] }
+```
+
+---
+
+### Collection of split values (`[ArgsSplit]` on a collection of tuples)
+
+When the property is a **collection of tuples** (e.g. `(int, int)[]`), each occurrence of the flag is split into one tuple and appended to the collection.
+
+```csharp
+// myapp --points "1,2" --points "3,4" --points "5,6"
+class AppConfig
+{
+    [ArgsValueFor("--points")]
+    [ArgsSplit(",")]
+    public (int, int)[]? Points { get; set; }
+}
+// config.Points → [(1, 2), (3, 4), (5, 6)]
+```
+
+---
+
+### Dictionary from repeated flags (`[ArgsSplit]` on `Dictionary<TKey, TValue>`)
+
+When `[ArgsSplit]` is applied to a `Dictionary<TKey, TValue>` property, the **first divider** separates the key from the value within each argument. Any **remaining dividers** apply to the value — they split a tuple value or a collection value exactly like the standalone tuple/collection behaviour. Repeated flags populate the dictionary with multiple entries.
+
+#### Simple value types
+
+```csharp
+// myapp --define KEY1=VALUE1 --define KEY2=VALUE2
+class AppConfig
+{
+    [ArgsValueFor("--define")]
+    [ArgsSplit("=")]
+    public Dictionary<string, string>? Defines { get; set; }
+}
+// config.Defines → { "KEY1": "VALUE1", "KEY2": "VALUE2" }
+
+// myapp --threshold cpu=90 --threshold memory=75
+class AppConfig
+{
+    [ArgsValueFor("--threshold")]
+    [ArgsSplit("=")]
+    public Dictionary<string, int>? Thresholds { get; set; }
+}
+// config.Thresholds → { "cpu": 90, "memory": 75 }
+```
+
+#### Tuple value
+
+Dividers after the first one split the tuple elements of the value:
+
+```csharp
+// myapp --entry item=hello,42
+class AppConfig
+{
+    [ArgsValueFor("--entry")]
+    [ArgsSplit("=", ",")]
+    public Dictionary<string, (string, int)>? Entries { get; set; }
+}
+// config.Entries → { "item": ("hello", 42) }
+```
+
+#### Collection value
+
+The second divider also works as a collection element separator:
+
+```csharp
+// myapp --tags env=prod,staging,dev --tags region=us,eu
+class AppConfig
+{
+    [ArgsValueFor("--tags")]
+    [ArgsSplit("=", ",")]
+    public Dictionary<string, string[]>? Tags { get; set; }
+}
+// config.Tags → { "env": ["prod", "staging", "dev"], "region": ["us", "eu"] }
+```
+
+---
+
+### Collection of split values (`[ArgsSplit]` on a collection of tuples)
+
+When the property is a **collection of tuples** (e.g. `(int, int)[]`), each occurrence of the flag is split into one tuple and appended to the collection.
+
+```csharp
+// myapp --points "1,2" --points "3,4" --points "5,6"
+class AppConfig
+{
+    [ArgsValueFor("--points")]
+    [ArgsSplit(",")]
+    public (int, int)[]? Points { get; set; }
+}
+// config.Points → [(1, 2), (3, 4), (5, 6)]
+```
+
+---
 
 ### Repeated flags as a collection
 
