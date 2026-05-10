@@ -76,4 +76,56 @@ public class HelpGeneratorTests
         var byGeneric = HelpGenerator.GetHelp<GitCommitExample>();
         byType.Should().Be(byGeneric);
     }
+
+    [Test]
+    public void GetHelp_HelpGroup_SectionHeadersAreEmitted()
+    {
+        var help = HelpGenerator.GetHelp<HelpGroupExample>();
+
+        help.Should().Contain("Output options:");
+        help.Should().Contain("Authentication:");
+    }
+
+    [Test]
+    public void GetHelp_HelpGroup_UngroupedOptionsAppearBeforeGroups()
+    {
+        var help = HelpGenerator.GetHelp<HelpGroupExample>();
+
+        var verbosePos = help.IndexOf("--verbose", StringComparison.Ordinal);
+        var outputHeaderPos = help.IndexOf("Output options:", StringComparison.Ordinal);
+
+        verbosePos.Should().BeLessThan(outputHeaderPos);
+    }
+
+    [Test]
+    public void GetHelp_HelpGroup_GroupedOptionsAppearUnderTheirSection()
+    {
+        var help = HelpGenerator.GetHelp<HelpGroupExample>();
+
+        var outputHeaderPos = help.IndexOf("Output options:", StringComparison.Ordinal);
+        var outputOptionPos = help.IndexOf("--output", StringComparison.Ordinal);
+        var formatOptionPos = help.IndexOf("--format", StringComparison.Ordinal);
+
+        outputOptionPos.Should().BeGreaterThan(outputHeaderPos);
+        formatOptionPos.Should().BeGreaterThan(outputHeaderPos);
+
+        var authHeaderPos = help.IndexOf("Authentication:", StringComparison.Ordinal);
+        var userOptionPos = help.IndexOf("--user", StringComparison.Ordinal);
+        var passwordOptionPos = help.IndexOf("--password", StringComparison.Ordinal);
+
+        userOptionPos.Should().BeGreaterThan(authHeaderPos);
+        passwordOptionPos.Should().BeGreaterThan(authHeaderPos);
+    }
+
+    [Test]
+    public void GetHelp_HelpGroup_GroupedOptionsDoNotAppearBeforeTheirSection()
+    {
+        var help = HelpGenerator.GetHelp<HelpGroupExample>();
+
+        var outputHeaderPos = help.IndexOf("Output options:", StringComparison.Ordinal);
+        var authHeaderPos = help.IndexOf("Authentication:", StringComparison.Ordinal);
+
+        // Output group comes before Authentication group (declaration order)
+        outputHeaderPos.Should().BeLessThan(authHeaderPos);
+    }
 }

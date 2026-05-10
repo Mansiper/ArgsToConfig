@@ -55,10 +55,54 @@ public static class HelpGenerator
 
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-        foreach (var prop in props) 
+        // Split into ungrouped (no ArgsHelpGroup) and grouped, preserving declaration order
+        var ungrouped = props.Where(p => p.GetCustomAttribute<ArgsHelpGroupAttribute>() is null).ToList();
+        var grouped = props
+            .Select(p => (prop: p, group: p.GetCustomAttribute<ArgsHelpGroupAttribute>()))
+            .Where(x => x.group is not null)
+            .GroupBy(x => x.group!.Name, StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var prop in ungrouped)
             AppendPropertyHelp(sb, prop);
 
+        foreach (var group in grouped)
+        {
+            // Only emit the section header if at least one property in the group has help text
+            var groupProps = group.Select(x => x.prop).ToList();
+            var hasAny = groupProps.Any(p => HasHelpText(p));
+            if (hasAny)
+            {
+                if (sb.Length > 0)
+                    sb.AppendLine();
+                sb.AppendLine($"{group.Key}:");
+            }
+            foreach (var prop in groupProps)
+                AppendPropertyHelp(sb, prop);
+        }
+
         return sb.ToString().TrimEnd();
+    }
+
+    private static bool HasHelpText(PropertyInfo prop)
+    {
+        var hasParam = prop.GetCustomAttribute<ArgsHasParameterAttribute>();
+        var valueFor = prop.GetCustomAttribute<ArgsValueForAttribute>();
+        var valueForBool = prop.GetCustomAttribute<ArgsValueForBoolAttribute>();
+        var argsEnum = prop.GetCustomAttribute<ArgsEnumAttribute>();
+        var argsObject = prop.GetCustomAttribute<ArgsObjectAttribute>();
+        var argsPipeline = prop.GetCustomAttribute<ArgsPipelineAttribute>();
+        var argsPathspec = prop.GetCustomAttribute<ArgsPathspecAttribute>();
+        var argsPositional = prop.GetCustomAttribute<ArgsPositionalAttribute>();
+
+        return (hasParam?.Description
+                ?? valueFor?.Description
+                ?? valueForBool?.Description
+                ?? argsEnum?.Description
+                ?? argsObject?.Description
+                ?? argsPipeline?.Description
+                ?? argsPathspec?.Description
+                ?? argsPositional?.Description) is not null;
     }
 
     private static void AppendPropertyHelp(StringBuilder sb, PropertyInfo prop)

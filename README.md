@@ -126,6 +126,50 @@ ArgumentsReader.OnUnknownArgument = async arg =>
 
 Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) to obtain the help string; the result is cached. Call `HelpGenerator.ClearCache()` to invalidate the cache.
 
+### Grouping options in help output (`[ArgsHelpGroup]`)
+
+Decorate any property with `[ArgsHelpGroup("Section name")]` to collect it under a named section in the help output. All properties sharing the same group name are listed together under that header. Properties without the attribute appear first in an implicit ungrouped section.
+
+```csharp
+class AppConfig
+{
+    [ArgsHasParameter("--verbose|-v", Description = "Enable verbose output")]
+    public bool Verbose { get; set; }
+
+    [ArgsValueFor("--output|-o", Description = "Output file path")]
+    [ArgsHelpGroup("Output options")]
+    public string? Output { get; set; }
+
+    [ArgsValueFor("--format", Description = "Output format (json, xml, csv)")]
+    [ArgsHelpGroup("Output options")]
+    public string? Format { get; set; }
+
+    [ArgsValueFor("--user", Description = "Username for authentication")]
+    [ArgsHelpGroup("Authentication")]
+    public string? User { get; set; }
+
+    [ArgsValueFor("--password", Description = "Password for authentication")]
+    [ArgsHelpGroup("Authentication")]
+    public string? Password { get; set; }
+}
+```
+
+`HelpGenerator.GetHelp<AppConfig>()` produces:
+
+```
+  --verbose|-v    Enable verbose output
+
+Output options:
+  --output|-o <output>    Output file path
+  --format <format>       Output format (json, xml, csv)
+
+Authentication:
+  --user <user>           Username for authentication
+  --password <password>   Password for authentication
+```
+
+Groups are emitted in the order their first member appears in the class declaration. Within each group, properties are listed in declaration order.
+
 ---
 
 ## Attributes
@@ -153,6 +197,7 @@ Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) 
 | `[ArgsExistingOnlyDirectory]` | string property | rejects the value if it is not a path to an existing directory |
 | `[ArgsLegalFileNamesOnly]` | string property | rejects the value if it contains characters that are illegal in a file name on the current OS |
 | *(any `ValidationAttribute`)* | any property | standard `System.ComponentModel.DataAnnotations` attributes (e.g. `[Required]`, `[Range]`, `[EmailAddress]`) are evaluated after parsing |
+| `[ArgsHelpGroup("name")]` | any property | groups the property under a named section in the help output produced by `HelpGenerator` |
 
 ---
 
