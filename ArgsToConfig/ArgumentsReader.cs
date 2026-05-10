@@ -26,7 +26,7 @@ public static class ArgumentsReader
 
         var obj = new T();
         var rules = InnerToObject.BuildRules(typeof(T));
-        var (error, position) = InnerToObject.ApplyRules(obj, rules, args);
+        var (error, position) = InnerToObject.ApplyRules(obj, rules, args, onUnknownArgument: OnUnknownArgument);
         var validationResults = new List<ValidationResult>();
         if (!Validator.TryValidateObject(obj, new ValidationContext(obj), validationResults, validateAllProperties: true))
             return (default, validationResults.Select(r => r.ErrorMessage ?? "Validation error").ToArray(), null);
@@ -72,6 +72,14 @@ public static class ArgumentsReader
     /// When set and a version flag (<c>--version</c> or <c>-v</c>) is detected, the callback is invoked and the process exits.
     /// </summary>
     public static Func<Task>? OnVersion { get; set; }
+    
+    /// <summary>
+    /// Optional callback for handling unknown arguments.
+    /// Receives the unknown argument string. Return <see langword="true"/> to continue parsing the remaining arguments,
+    /// or <see langword="false"/> to stop and exit the process.
+    /// When not set, an error is returned normally in the <c>errors</c> array.
+    /// </summary>
+    public static Func<string, Task<bool>>? OnUnknownArgument { get; set; }
 
     private static void CheckHelpVersion(string[] args)
     {

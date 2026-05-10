@@ -21,6 +21,8 @@ internal sealed class PropertyRule
 
     // ArgsEnum (property is an enum type)
     public bool IsEnum { get; init; }
+    // ArgsEnum with Flags = true (bitwise OR accumulation)
+    public bool IsEnumFlags { get; init; }
 
     // ArgsAfter
     public string[]? AfterFields { get; init; }

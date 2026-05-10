@@ -118,6 +118,7 @@ internal static class InnerToObject
                 IfSetFields = ifSet?.GetFields,
                 IsPathspec = isPathspec,
                 EnumMemberRules = enumMemberRules,
+                IsEnumFlags = argsEnum?.Flags ?? false,
                 PositionalIndex = positional?.GetPosition ?? -1,
                 TupleDividers = argsSplit?.GetDividers,
                 TuplePartsDividers = argsSplit?.PartsDividers ?? false,
@@ -135,7 +136,7 @@ internal static class InnerToObject
         return rules;
     }
 
-    internal static (string? error, int? position) ApplyRules(object obj, List<PropertyRule> rules, string[] args, bool ignoreUnknown = false)
+    internal static (string? error, int? position) ApplyRules(object obj, List<PropertyRule> rules, string[] args, bool ignoreUnknown = false, Func<string, Task<bool>>? onUnknownArgument = null)
     {
         // ── ArgsObject subcommand dispatch ───────────────────────────────────
         var objectRules = rules.Where(r => r.IsObject).ToList();
@@ -205,7 +206,7 @@ internal static class InnerToObject
                 var subType = UnwrapNullable(segRule.Property.PropertyType);
                 var subObj = Activator.CreateInstance(subType)!;
                 var subRules = GetOrBuildRules(subRulesCache, subType);
-                var (subErr, subPos) = ApplyRules(subObj, subRules, segArgs.ToArray());
+                var (subErr, subPos) = ApplyRules(subObj, subRules, segArgs.ToArray(), onUnknownArgument: onUnknownArgument);
                 if (subErr is not null) return (subErr, subPos);
                 segRule.Property.SetValue(obj, subObj);
             }
@@ -213,7 +214,7 @@ internal static class InnerToObject
             // Process non-object rules against root args (args before any subcommand)
             if (nonObjectRules.Count > 0)
             {
-                var (nonObjErr, nonObjPos) = ApplyRules(obj, nonObjectRules, rootArgs.ToArray(), ignoreUnknown: true);
+                var (nonObjErr, nonObjPos) = ApplyRules(obj, nonObjectRules, rootArgs.ToArray(), ignoreUnknown: true, onUnknownArgument: onUnknownArgument);
                 if (nonObjErr is not null) return (nonObjErr, nonObjPos);
             }
             return (null, null);
@@ -345,7 +346,7 @@ internal static class InnerToObject
                     }
                     var cmdObj = Activator.CreateInstance(cmdEntry.Type)!;
                     var cmdRules = GetOrBuildRules(cmdRulesCache, cmdEntry.Type);
-                    var (cmdErr, cmdPos) = ApplyRules(cmdObj, cmdRules, cmdArgsList.ToArray());
+                    var (cmdErr, cmdPos) = ApplyRules(cmdObj, cmdRules, cmdArgsList.ToArray(), onUnknownArgument: onUnknownArgument);
                     if (cmdErr is not null) return (cmdErr, cmdPos);
                     pipelineCommands[cmdEntry.PipelineRule].Add(cmdObj);
                 }
@@ -415,7 +416,7 @@ internal static class InnerToObject
             // Process remaining (non-pipeline) args through root rules
             if (nonPipelineRules.Count > 0)
             {
-                var (nonPipeErr, nonPipePos) = ApplyRules(obj, nonPipelineRules, remainingArgs.ToArray(), ignoreUnknown);
+                var (nonPipeErr, nonPipePos) = ApplyRules(obj, nonPipelineRules, remainingArgs.ToArray(), ignoreUnknown, onUnknownArgument);
                 if (nonPipeErr is not null) return (nonPipeErr, nonPipePos);
             }
             return (null, null);
@@ -513,7 +514,19 @@ internal static class InnerToObject
             if (!argIndex.TryGetValue(key, out var entry))
             {
                 if (!ignoreUnknown && !knownArgNames.Contains(key))
+                {
+                    if (onUnknownArgument is not null)
+                    {
+                        var continueparsing = onUnknownArgument(a).GetAwaiter().GetResult();
+                        if (!continueparsing)
+                        {
+                            Environment.Exit(0);
+                            return (null, null);
+                        }
+                    }
+                    else
                         return ($"Unknown argument: '{a}'.", i);
+                }
                 continue;
             }
 
@@ -541,8 +554,16 @@ internal static class InnerToObject
             // ── ArgsEnum with per-member ArgsHasParameter ─────────────────────
             if (member is not null)
             {
-                var e5 = SetTracked(rule.Property, member.Value, i);
-                if (e5 is not null) return (e5, i);
+                if (rule.IsEnumFlags)
+                {
+                    var ef = SetFlagOr(rule.Property, member.Value, i);
+                    if (ef is not null) return (ef, i);
+                }
+                else
+                {
+                    var e5 = SetTracked(rule.Property, member.Value, i);
+                    if (e5 is not null) return (e5, i);
+                }
                 continue;
             }
 
@@ -567,6 +588,45 @@ internal static class InnerToObject
 
             if (rule is { IsEnum: true, EnumMemberRules: not null })
             {
+                if (rule.IsEnumFlags && rule.TupleDividers is not null && value is not null)
+                {
+                    // Split value by dividers and OR each matched enum member
+                    var (splitErr, splitParts) = SplitStringByDividers(value, rule.TupleDividers);
+                    if (splitErr is not null) return (splitErr, i);
+                    foreach (var part in splitParts!)
+                    {
+                        var partMatched = false;
+                        foreach (var mr in rule.EnumMemberRules)
+                        {
+                            var matched = mr.ArgsEnumValue?.Any(v => string.Equals(v, part, StringComparison.OrdinalIgnoreCase)) ??
+                                          string.Equals(mr.Value.ToString(), part, StringComparison.OrdinalIgnoreCase);
+                            if (!matched) continue;
+                            var ef2 = SetFlagOr(rule.Property, mr.Value, flagIndex);
+                            if (ef2 is not null) return (ef2, flagIndex);
+                            partMatched = true;
+                            break;
+                        }
+                        if (!partMatched)
+                            return ($"Invalid value '{part}' for argument '{key}'.", i);
+                    }
+                }
+                else if (rule.IsEnumFlags && value is not null)
+                {
+                    var enumMatched = false;
+                    foreach (var mr in rule.EnumMemberRules)
+                    {
+                        var matched = mr.ArgsEnumValue?.Any(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase)) ??
+                                      string.Equals(mr.Value.ToString(), value, StringComparison.OrdinalIgnoreCase);
+                        if (!matched) continue;
+                        var ef3 = SetFlagOr(rule.Property, mr.Value, flagIndex);
+                        if (ef3 is not null) return (ef3, flagIndex);
+                        enumMatched = true;
+                        break;
+                    }
+                    if (!enumMatched)
+                        return ($"Invalid value '{value}' for argument '{key}'.", i);
+                }
+                else
                 {
                     var enumMatched = false;
                     foreach (var mr in rule.EnumMemberRules)
@@ -1019,9 +1079,47 @@ internal static class InnerToObject
                 consumedAt[prop.Name] = argIndx;
             return null;
         }
+
+        string? SetFlagOr(PropertyInfo prop, object value, int argIndx)
+        {
+            // Combine with existing flag value via bitwise OR
+            var enumType = UnwrapNullable(prop.PropertyType);
+            var underlying = Enum.GetUnderlyingType(enumType);
+            var newInt = Convert.ToInt64(value);
+            var existing = prop.GetValue(obj);
+            var existingInt = existing is not null ? Convert.ToInt64(existing) : 0L;
+            var combined = Enum.ToObject(enumType, existingInt | newInt);
+            prop.SetValue(obj, combined);
+            setFieldNames.Add(prop.Name);
+            if (argIndx >= 0)
+                consumedAt[prop.Name] = argIndx;
+            return null;
+        }
     }
 
     private static Type UnwrapNullable(Type t) => Nullable.GetUnderlyingType(t) ?? t;
+
+    private static (string? error, List<string>? parts) SplitStringByDividers(string raw, string[] dividers)
+    {
+        if (raw is ['"', _, ..] && raw[^1] == '"')
+            raw = raw[1..^1];
+
+        var parts = new List<string>();
+        var remaining = raw;
+        var dividerIndex = 0;
+        while (true)
+        {
+            var divider = dividers[dividerIndex % dividers.Length];
+            var idx = remaining.IndexOf(divider, StringComparison.Ordinal);
+            if (idx < 0)
+                break;
+            parts.Add(remaining[..idx]);
+            remaining = remaining[(idx + divider.Length)..];
+            dividerIndex++;
+        }
+        parts.Add(remaining);
+        return (null, parts);
+    }
 
     private static List<PropertyRule> GetOrBuildRules(Dictionary<Type, List<PropertyRule>> cache, Type type) =>
         cache.TryGetValue(type, out var r) ? r : cache[type] = BuildRules(type);

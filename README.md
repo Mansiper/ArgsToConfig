@@ -112,10 +112,17 @@ ArgumentsReader.OnVersion = async () =>
 {
     Console.WriteLine("myapp 1.0.0");
 };
+
+ArgumentsReader.OnUnknownArgument = async arg =>
+{
+    Console.Error.WriteLine($"Unknown argument: {arg}. Run with --help for usage.");
+    return false; // false = stop and exit, true = continue parsing
+};
 ```
 
 `ArgumentsReader.OnHelp` is an `async` delegate invoked automatically when `--help` (or `-h`) is detected in the arguments. The `subcmd` parameter contains the active subcommand name, or `null` when at the root level.  
-`ArgumentsReader.OnVersion` is an `async` delegate invoked automatically when `--version` is detected.
+`ArgumentsReader.OnVersion` is an `async` delegate invoked automatically when `--version` is detected.  
+`ArgumentsReader.OnUnknownArgument` is an `async` delegate invoked when an unrecognised argument is encountered. It receives the unknown argument string. Return `true` to skip the argument and continue parsing the remaining arguments, or `false` to stop and exit the process. When not set, an error is returned normally in the `errors` array.
 
 Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) to obtain the help string; the result is cached. Call `HelpGenerator.ClearCache()` to invalidate the cache.
 
@@ -139,7 +146,7 @@ Call `HelpGenerator.GetHelp<T>()` (or the non-generic overload `GetHelp(Type)`) 
 | `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand object when the named keyword is encountered; supports **classes, records, and structs** with arbitrary nesting depth |
 | `[ArgsPipeline]` | any collection of an interface | collects an ordered sequence of pipeline command objects that all implement the property's element interface |
 | `[ArgsPipelineCommand("name")]` | class | registers a class as a named pipeline command; the class must implement the interface declared on the `[ArgsPipeline]` property |
-| `[ArgsSplit("div1", ...)]` | tuple, `Dictionary<TKey, TValue>`, or collection-of-tuples property | splits a single argument value into parts using the supplied dividers; the first divider separates key from value in dictionaries; for tuples supports a cyclic (default) and a per-part mode via `PartsDividers`; repeated flags populate collections or dictionaries |
+| `[ArgsSplit("div1", ...)]` | tuple, `Dictionary<TKey, TValue>`, collection-of-tuples, or flag-enum property | splits a single argument value into parts using the supplied dividers; the first divider separates key from value in dictionaries; for tuples supports a cyclic (default) and a per-part mode via `PartsDividers`; repeated flags populate collections or dictionaries; when combined with `[ArgsEnum(Flags = true)]` each part is OR-ed into the enum value |
 | `[ArgsConvertor(typeof(T))]` | any property | applies a custom `IArgsConvertor` to convert the raw string value into the property's type |
 | `[ArgsAcceptFromAmong("a", "b", ...)]` | string (or collection of string) property | rejects any value that is not in the supplied set |
 | `[ArgsExistingOnlyFile]` | string property | rejects the value if it is not a path to an existing file |
@@ -281,6 +288,76 @@ class AppConfig
     [ArgsEnum("--log-level|-l", Optional = true, DefaultValue = nameof(LogLevel.Info))]
     public LogLevel LogLevel { get; set; }
 }
+```
+
+### Enum flags (`[ArgsEnum(Flags = true)]`)
+
+Set `Flags = true` on `[ArgsEnum]` to treat the enum as a **bit-flag enum**. Multiple flag values are combined with bitwise OR. The enum type should be decorated with `[Flags]`.
+
+There are three ways to accumulate flag values:
+
+#### 1. Repeating the named argument (`[ArgsValueOf]`)
+
+Each occurrence of the flag ORs its value into the property.
+
+```csharp
+[Flags]
+enum FilePermission
+{
+    None    = 0,
+    [ArgsEnumValue("read")]    Read    = 1,
+    [ArgsEnumValue("write")]   Write   = 2,
+    [ArgsEnumValue("execute")] Execute = 4,
+}
+
+class Config
+{
+    // myapp --permission read --permission write --permission execute
+    [ArgsEnum("--permission", Flags = true, Optional = true)]
+    public FilePermission Permission { get; set; }
+}
+// config.Permission → FilePermission.Read | FilePermission.Write | FilePermission.Execute
+```
+
+#### 2. Divider-separated values in a single argument (`[ArgsSplit]`)
+
+Combine `[ArgsEnum(Flags = true)]` with `[ArgsSplit]` to accept multiple flag values in one argument, separated by a divider. Repeating the flag is also supported and OR-es the additional values.
+
+```csharp
+class Config
+{
+    // myapp --modes "read,write"
+    [ArgsEnum("--modes", Flags = true, Optional = true)]
+    [ArgsSplit(",")]
+    public FilePermission Modes { get; set; }
+}
+// config.Modes → FilePermission.Read | FilePermission.Write
+
+// myapp --modes "read,write" --modes "execute"
+// config.Modes → FilePermission.Read | FilePermission.Write | FilePermission.Execute
+```
+
+#### 3. Per-member dash flags repeated
+
+When enum members carry dash-flag `[ArgsEnumValue]` strings (no named argument on `[ArgsEnum]`), each matching flag is OR-ed in as it is encountered.
+
+```csharp
+[Flags]
+enum LogFlag
+{
+    None    = 0,
+    [ArgsEnumValue("--verbose|-v")] Verbose = 1,
+    [ArgsEnumValue("--debug|-d")]   Debug   = 2,
+    [ArgsEnumValue("--trace|-t")]   Trace   = 4,
+}
+
+class Config
+{
+    // myapp --verbose --debug
+    [ArgsEnum(Flags = true, Optional = true)]
+    public LogFlag LogFlags { get; set; }
+}
+// config.LogFlags → LogFlag.Verbose | LogFlag.Debug
 ```
 
 ### Pathspec (arguments after `--`)
