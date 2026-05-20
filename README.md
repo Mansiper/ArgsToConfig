@@ -1,3 +1,6 @@
+[![NuGet Version](https://img.shields.io/nuget/v/Mansiper.ArgsToConfig)](https://www.nuget.org/packages/Mansiper.ArgsToConfig)
+[![License](https://img.shields.io/github/license/Mansiper/ArgsToConfig.svg)](LICENSE)
+
 # CLI arguments to configuration
 
 **ArgsToConfig** is a .NET library that maps CLI arguments directly onto a strongly-typed configuration class using attributes.  
