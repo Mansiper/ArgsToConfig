@@ -70,7 +70,7 @@ public static class HelpGenerator
         {
             // Only emit the section header if at least one property in the group has help text
             var groupProps = group.Select(x => x.prop).ToList();
-            var hasAny = groupProps.Any(p => HasHelpText(p));
+            var hasAny = groupProps.Any(HasHelpText);
             if (hasAny)
             {
                 if (sb.Length > 0)

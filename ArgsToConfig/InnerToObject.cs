@@ -1,4 +1,5 @@
-﻿using ArgsToConfig.Attributes;
+﻿using System.Net;
+using ArgsToConfig.Attributes;
 using ArgsToConfig.Models;
 using System.Reflection;
 
@@ -136,28 +137,28 @@ internal static class InnerToObject
         return rules;
     }
 
-    internal static (string? error, int? position) ApplyRules(object obj, List<PropertyRule> rules, string[] args, bool ignoreUnknown = false, Func<string, Task<bool>>? onUnknownArgument = null)
+    internal static (string? error, int? position) ApplyRules(object obj, List<PropertyRule> rules, string[] args, 
+        bool ignoreUnknown = false, Func<string, Task<bool>>? onUnknownArgument = null)
     {
         // ── ArgsObject subcommand dispatch ───────────────────────────────────
         var objectRules = rules.Where(r => r.IsObject).ToList();
         if (objectRules.Count > 0)
         {
             // Build a map: subcommand name → rule (supports pipe-separated and dash-prefixed names)
-            var subcmdMap = new Dictionary<string, PropertyRule>(StringComparer.OrdinalIgnoreCase);
-            foreach (var r in objectRules)
-                if (r.ObjectRootName is not null)
-                    foreach (var n in r.ObjectRootName)
-                        subcmdMap[n.Trim()] = r;
+            var subcmdMap = objectRules
+                .Where(r => r.ObjectRootName is not null)
+                .SelectMany(r => r.ObjectRootName!.Select(n => (Name: n.Trim(), Rule: r)))
+                .ToDictionary(x => x.Name, x => x.Rule, StringComparer.OrdinalIgnoreCase);
 
             var nonObjectRules = rules.Where(r => !r.IsObject).ToList();
             var parentArgNames = BuildKnownArgNames(nonObjectRules);
 
             // Collect root positional (non-dash) parameter names so we can reclaim them from subcommand segments
-            var rootPositionalNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var r in nonObjectRules)
-                if (r.HasParameterNames is not null)
-                    foreach (var n in r.HasParameterNames.Where(n => !n.StartsWith('-')))
-                        rootPositionalNames.Add(n);
+            var rootPositionalNames = new HashSet<string>(
+                nonObjectRules
+                    .Where(r => r.HasParameterNames is not null)
+                    .SelectMany(r => r.HasParameterNames!.Where(n => !n.StartsWith('-'))),
+                StringComparer.OrdinalIgnoreCase);
 
             // Validate: no arg name conflicts between parent non-object rules and any subcommand
             var subRulesCache = new Dictionary<Type, List<PropertyRule>>();
@@ -1084,7 +1085,6 @@ internal static class InnerToObject
         {
             // Combine with existing flag value via bitwise OR
             var enumType = UnwrapNullable(prop.PropertyType);
-            var underlying = Enum.GetUnderlyingType(enumType);
             var newInt = Convert.ToInt64(value);
             var existing = prop.GetValue(obj);
             var existingInt = existing is not null ? Convert.ToInt64(existing) : 0L;
@@ -1317,21 +1317,21 @@ internal static class InnerToObject
         {
             var result = targetType switch
             {
-                _ when targetType == typeof(string)               => raw,
-                _ when targetType == typeof(bool)                 => bool.Parse(raw),
-                _ when targetType == typeof(int)                  => int.Parse(raw),
-                _ when targetType == typeof(DateTime)             => DateTime.Parse(raw),
-                _ when targetType == typeof(DateOnly)             => DateOnly.Parse(raw),
-                _ when targetType == typeof(TimeOnly)             => TimeOnly.Parse(raw),
-                _ when targetType == typeof(TimeSpan)             => TimeSpan.Parse(raw),
-                _ when targetType == typeof(Guid)                 => Guid.Parse(raw),
-                _ when targetType == typeof(Uri)                  => new Uri(raw),
-                _ when targetType == typeof(FileInfo)             => new FileInfo(raw),
-                _ when targetType == typeof(DirectoryInfo)        => new DirectoryInfo(raw),
-                _ when targetType == typeof(System.Net.IPAddress) => System.Net.IPAddress.Parse(raw),
-                _ when targetType == typeof(Version)              => Version.Parse(raw),
-                _ when targetType.IsEnum                          => Enum.Parse(targetType, raw, ignoreCase: true),
-                _                                                 => Convert.ChangeType(raw, targetType)
+                _ when targetType == typeof(string)        => raw,
+                _ when targetType == typeof(bool)          => bool.Parse(raw),
+                _ when targetType == typeof(int)           => int.Parse(raw),
+                _ when targetType == typeof(DateTime)      => DateTime.Parse(raw),
+                _ when targetType == typeof(DateOnly)      => DateOnly.Parse(raw),
+                _ when targetType == typeof(TimeOnly)      => TimeOnly.Parse(raw),
+                _ when targetType == typeof(TimeSpan)      => TimeSpan.Parse(raw),
+                _ when targetType == typeof(Guid)          => Guid.Parse(raw),
+                _ when targetType == typeof(Uri)           => new Uri(raw),
+                _ when targetType == typeof(FileInfo)      => new FileInfo(raw),
+                _ when targetType == typeof(DirectoryInfo) => new DirectoryInfo(raw),
+                _ when targetType == typeof(IPAddress)     => IPAddress.Parse(raw),
+                _ when targetType == typeof(Version)       => Version.Parse(raw),
+                _ when targetType.IsEnum                   => Enum.Parse(targetType, raw, ignoreCase: true),
+                _                                          => Convert.ChangeType(raw, targetType)
             };
             return (null, result);
         }

@@ -239,14 +239,14 @@ internal static class InnerToArgs
     {
         var propType = Nullable.GetUnderlyingType(rule.Property.PropertyType) ?? rule.Property.PropertyType;
 
-        if (InnerToObject.IsDictionaryProperty(propType, out var keyType, out var valueType))
+        if (InnerToObject.IsDictionaryProperty(propType, out _, out var valueType))
         {
             var divider = rule.SplitDividers?[0] ?? "=";
             var items = (System.Collections.IEnumerable)value;
             var result = new List<string>();
             foreach (System.Collections.DictionaryEntry entry in (System.Collections.IDictionary)items)
             {
-                var keyStr = entry.Key?.ToString() ?? string.Empty;
+                var keyStr = entry.Key.ToString() ?? string.Empty;
                 var valStr = SerializeDictionaryValue(entry.Value, valueType, rule);
                 result.Add($"{keyStr}{divider}{valStr}");
             }
@@ -266,7 +266,7 @@ internal static class InnerToArgs
     {
         if (value is null) return string.Empty;
         var dividers = rule.SplitDividers is { Length: > 1 } d ? d[1..] : rule.SplitDividers;
-        if (dividers is not null && valueType.IsValueType && valueType.IsGenericType)
+        if (dividers is not null && valueType is { IsValueType: true, IsGenericType: true })
         {
             // Tuple value
             var fields = valueType.GetFields();
@@ -275,7 +275,7 @@ internal static class InnerToArgs
                 parts[i] = fields[i].GetValue(value)?.ToString() ?? string.Empty;
             return string.Join(dividers[0], parts);
         }
-        if (InnerToObject.IsCollectionProperty(valueType, out var elemType))
+        if (InnerToObject.IsCollectionProperty(valueType, out _))
         {
             var divider = dividers?[0] ?? ",";
             var items = (System.Collections.IEnumerable)value;
@@ -286,7 +286,7 @@ internal static class InnerToArgs
 
     private static string SerializeScalar(object value, Type type, PropertyRule rule)
     {
-        if (rule.SplitDividers is not null && type.IsValueType && type.IsGenericType)
+        if (rule.SplitDividers is not null && type is { IsValueType: true, IsGenericType: true })
         {
             var fields = type.GetFields();
             var parts = new string[fields.Length];
