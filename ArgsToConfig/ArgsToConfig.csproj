@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 
     <!-- NuGet package metadata -->
-    <PackageId>ArgsToConfig</PackageId>
+    <PackageId>Mansiper.ArgsToConfig</PackageId>
     <Version>0.9.0</Version>
     <Authors>Pavel Razboynikov</Authors>
     <Description>A library for parsing command-line arguments into strongly-typed configuration objects using attributes.</Description>

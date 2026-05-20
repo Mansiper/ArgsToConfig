@@ -3,8 +3,6 @@
 **ArgsToConfig** is a .NET library that maps CLI arguments directly onto a strongly-typed configuration class using attributes.  
 No manual parsing loops — just decorate your properties and call `ArgumentsReader.ToObject<T>()`.
 
-> 📦 NuGet: *link coming soon*  
-
 *Breaking changes are still possible until the 1.0.0 release.*
 
 ---
@@ -12,7 +10,7 @@ No manual parsing loops — just decorate your properties and call `ArgumentsRea
 ## Installation
 
 ```
-dotnet add package ArgsToConfig
+dotnet add package Mansiper.ArgsToConfig
 ```
 
 ---
