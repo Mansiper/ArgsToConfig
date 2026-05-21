@@ -39,7 +39,7 @@ internal static class InnerToArgs
 
                     var cmdAttr = item.GetType().GetCustomAttribute<ArgsPipelineCommandAttribute>();
                     if (cmdAttr is not null)
-                        deferred.Add(cmdAttr.GetName);
+                        deferred.Add(cmdAttr.Name);
                     BuildArgs(item, deferred);
                 }
                 continue;

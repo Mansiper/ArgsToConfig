@@ -9,12 +9,10 @@ namespace ArgsToConfig.Attributes;
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsAcceptFromAmongAttribute : Attribute
 {
-    private readonly string[] values;
+    internal readonly string[] Values;
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
     public ArgsAcceptFromAmongAttribute(params string[] values) =>
-        this.values = values;
-
-    internal string[] GetValues => values;
+        Values = values;
 }

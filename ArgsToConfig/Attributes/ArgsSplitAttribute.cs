@@ -29,7 +29,7 @@ namespace ArgsToConfig.Attributes;
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsSplitAttribute : Attribute
 {
-    private readonly string[] dividers;
+    internal readonly string[] Dividers;
 
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
@@ -42,7 +42,5 @@ public class ArgsSplitAttribute : Attribute
     public bool PartsDividers { get; set; }
 
     public ArgsSplitAttribute(params string[] dividers) =>
-        this.dividers = dividers;
-
-    internal string[] GetDividers => dividers;
+        Dividers = dividers;
 }

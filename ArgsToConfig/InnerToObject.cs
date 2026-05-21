@@ -108,7 +108,7 @@ internal static class InnerToObject
             {
                 Property = prop,
                 HasParameterNames = hasParam?.GetNames,
-                HasParameterPosition = hasParam?.GetPosition ?? -1,
+                HasParameterPosition = hasParam?.Position ?? -1,
                 ValueForNames = valueFor?.GetNames,
                 ValueForOptional = valueFor?.Optional ?? false,
                 ValueForDefault = valueFor?.DefaultValue,
@@ -116,20 +116,20 @@ internal static class InnerToObject
                 ValueForBoolFalseNames = valueForBool?.GetFalseNames,
                 IsEnum = isEnum,
                 AfterFields = after?.GetFields,
-                IfSetFields = ifSet?.GetFields,
+                IfSetFields = ifSet?.Fields,
                 IsPathspec = isPathspec,
                 EnumMemberRules = enumMemberRules,
                 IsEnumFlags = argsEnum?.Flags ?? false,
-                PositionalIndex = positional?.GetPosition ?? -1,
-                SplitDividers = argsSplit?.GetDividers,
+                PositionalIndex = positional?.Position ?? -1,
+                SplitDividers = argsSplit?.Dividers,
                 SplitPartsDividers = argsSplit?.PartsDividers ?? false,
                 IsImplicitPositional = hasParam is null && valueFor is null && valueForBool is null
                     && !isEnum && after is null && !isPathspec && positional is null,
-                ConvertorType = convertor?.GetConvertorType,
+                ConvertorType = convertor?.ConvertorType,
                 IsExistingOnlyFile = isExistingOnlyFile,
                 IsExistingOnlyDirectory = isExistingOnlyDirectory,
                 IsLegalFileNamesOnly = isLegalFileNamesOnly,
-                AcceptFromAmong = acceptFromAmong?.GetValues,
+                AcceptFromAmong = acceptFromAmong?.Values,
                 EnvVar = hasParam?.EnvVar ?? valueFor?.EnvVar ?? argsEnum?.EnvVar
             });
         }
@@ -252,7 +252,7 @@ internal static class InnerToObject
             foreach (var cmdType in allCommandTypes)
             {
                 var cmdAttr = cmdType.GetCustomAttribute<ArgsPipelineCommandAttribute>()!;
-                var cmdName = cmdAttr.GetName;
+                var cmdName = cmdAttr.Name;
                 // Find which pipeline interface this type implements
                 PropertyRule? matchingPipelineRule = null;
                 foreach (var (iface, pr) in pipelineByInterface)
@@ -1018,7 +1018,7 @@ internal static class InnerToObject
         var oneOfAttributes = obj.GetType().GetCustomAttributes<ArgsOneOfAttribute>();
         foreach (var oneOfAttr in oneOfAttributes)
         {
-            var setInGroup = oneOfAttr.GetFields.Where(setFieldNames.Contains).ToList();
+            var setInGroup = oneOfAttr.Fields.Where(setFieldNames.Contains).ToList();
             if (setInGroup.Count > 1)
             {
                 var lastConflictPos = setInGroup
@@ -1026,7 +1026,7 @@ internal static class InnerToObject
                     .Select(f => consumedAt[f])
                     .DefaultIfEmpty(0)
                     .Max();
-                return ($"Properties '{string.Join("', '", oneOfAttr.GetFields)}' are mutually exclusive ([ArgsOneOf]).", lastConflictPos);
+                return ($"Properties '{string.Join("', '", oneOfAttr.Fields)}' are mutually exclusive ([ArgsOneOf]).", lastConflictPos);
             }
         }
 
@@ -1034,15 +1034,15 @@ internal static class InnerToObject
         var mutuallyRequiredAttributes = obj.GetType().GetCustomAttributes<ArgsMutuallyRequiredAttribute>();
         foreach (var mutReqAttr in mutuallyRequiredAttributes)
         {
-            var setInGroup = mutReqAttr.GetFields.Where(setFieldNames.Contains).ToList();
-            if (setInGroup.Count > 0 && setInGroup.Count < mutReqAttr.GetFields.Length)
+            var setInGroup = mutReqAttr.Fields.Where(setFieldNames.Contains).ToList();
+            if (setInGroup.Count > 0 && setInGroup.Count < mutReqAttr.Fields.Length)
             {
                 var lastSetPos = setInGroup
                     .Where(consumedAt.ContainsKey)
                     .Select(f => consumedAt[f])
                     .DefaultIfEmpty(0)
                     .Max();
-                return ($"Properties '{string.Join("', '", mutReqAttr.GetFields)}' must all be set together ([ArgsMutuallyRequired]).", lastSetPos);
+                return ($"Properties '{string.Join("', '", mutReqAttr.Fields)}' must all be set together ([ArgsMutuallyRequired]).", lastSetPos);
             }
         }
 

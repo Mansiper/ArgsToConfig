@@ -1,4 +1,5 @@
 [![NuGet Version](https://img.shields.io/nuget/v/Mansiper.ArgsToConfig)](https://www.nuget.org/packages/Mansiper.ArgsToConfig)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Mansiper.ArgsToConfig)](https://www.nuget.org/packages/Mansiper.ArgsToConfig)
 [![License](https://img.shields.io/github/license/Mansiper/ArgsToConfig.svg)](LICENSE)
 
 # CLI arguments to configuration
@@ -177,20 +178,23 @@ Groups are emitted in the order their first member appears in the class declarat
 
 | Attribute | Target | Description |
 |---|---|---|
+| **Work with arguments** |
 | `[ArgsHasParameter("name")]` | `bool` property | `true` when the named flag is present in the arguments |
 | `[ArgsValueFor("name")]` | any property | reads the value that follows the named flag |
 | `[ArgsValueForBool("true-name", "false-name")]` | `bool` property | sets `true`/`false` depending on which flag is present |
 | `[ArgsEnum]` | enum property | maps flag/value arguments to enum members decorated with `[ArgsEnumValue]`; optionally accepts pipe-separated flag names |
 | `[ArgsEnumValue("value")]` | enum member | the CLI string value that maps to this enum member |
-| `[ArgsAfter("prop1", "prop2", ...)]` | any property | the field can only be assigned a value after **all** of the specified fields have been assigned; once this field receives a value, the specified fields become immutable |
-| `[ArgsOneOf("prop1", "prop2", ...)]` | **class** | only one of the listed fields may have a value at a time; all listed fields must be nullable; may be applied multiple times |
-| `[ArgsMutuallyRequired("prop1", "prop2", ...)]` | **class** | all of the listed fields must have a value at the same time (or none of them); all listed fields must be nullable; may be applied multiple times |
-| `[ArgsIfSet("prop1", "prop2", ...)]` | any property | the field can only be assigned a value if **all** specified fields are not `null` |
-| `[ArgsPathspec]` | `string[]` property | captures all arguments after `--` |
 | `[ArgsPositional(index)]` | any property | captures positional arguments by zero-based index |
 | `[ArgsObject("name")]` | sub-object property | dispatches to a subcommand object when the named keyword is encountered; supports **classes, records, and structs** with arbitrary nesting depth |
 | `[ArgsPipeline]` | any collection of an interface | collects an ordered sequence of pipeline command objects that all implement the property's element interface |
 | `[ArgsPipelineCommand("name")]` | class | registers a class as a named pipeline command; the class must implement the interface declared on the `[ArgsPipeline]` property |
+| `[ArgsPathspec]` | `string[]` property | captures all arguments after `--` |
+| **Logical attributes** |
+| `[ArgsAfter("prop1", "prop2", ...)]` | any property | the field can only be assigned a value after **all** of the specified fields have been assigned; once this field receives a value, the specified fields become immutable |
+| `[ArgsOneOf("prop1", "prop2", ...)]` | **class** | only one of the listed fields may have a value at a time; all listed fields must be nullable; may be applied multiple times |
+| `[ArgsMutuallyRequired("prop1", "prop2", ...)]` | **class** | all of the listed fields must have a value at the same time (or none of them); all listed fields must be nullable; may be applied multiple times |
+| `[ArgsIfSet("prop1", "prop2", ...)]` | any property | the field can only be assigned a value if **all** specified fields are not `null` |
+| **Work with values** |
 | `[ArgsSplit("div1", ...)]` | tuple, `Dictionary<TKey, TValue>`, collection-of-tuples, or flag-enum property | splits a single argument value into parts using the supplied dividers; the first divider separates key from value in dictionaries; for tuples supports a cyclic (default) and a per-part mode via `PartsDividers`; repeated flags populate collections or dictionaries; when combined with `[ArgsEnum(Flags = true)]` each part is OR-ed into the enum value |
 | `[ArgsConvertor(typeof(T))]` | any property | applies a custom `IArgsConvertor` to convert the raw string value into the property's type |
 | `[ArgsAcceptFromAmong("a", "b", ...)]` | string (or collection of string) property | rejects any value that is not in the supplied set |
@@ -198,6 +202,7 @@ Groups are emitted in the order their first member appears in the class declarat
 | `[ArgsExistingOnlyDirectory]` | string property | rejects the value if it is not a path to an existing directory |
 | `[ArgsLegalFileNamesOnly]` | string property | rejects the value if it contains characters that are illegal in a file name on the current OS |
 | *(any `ValidationAttribute`)* | any property | standard `System.ComponentModel.DataAnnotations` attributes (e.g. `[Required]`, `[Range]`, `[EmailAddress]`) are evaluated after parsing |
+| **For help generator** |
 | `[ArgsHelpGroup("name")]` | any property | groups the property under a named section in the help output produced by `HelpGenerator` |
 
 ---

@@ -11,13 +11,11 @@ namespace ArgsToConfig.Attributes;
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsPositionalAttribute : Attribute
 {
-    private readonly int position;
+    internal readonly int Position;
 
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
     public ArgsPositionalAttribute(int position) =>
-        this.position = position;
-
-    internal int GetPosition => position;
+        Position = position;
 }

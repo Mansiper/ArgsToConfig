@@ -10,13 +10,11 @@ namespace ArgsToConfig.Attributes;
 [AttributeUsage(AttributeTargets.Class)]
 public class ArgsPipelineCommandAttribute : Attribute
 {
-    private readonly string name;
+    internal readonly string Name;
 
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
     public ArgsPipelineCommandAttribute(string name) =>
-        this.name = name;
-
-    internal string GetName => name;
+        Name = name;
 }

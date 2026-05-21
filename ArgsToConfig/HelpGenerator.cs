@@ -180,7 +180,7 @@ public static class HelpGenerator
         }
 
         if (argsIfSet?.Description != null)
-            sb.AppendLine($"      (requires: {string.Join(", ", argsIfSet.GetFields)})\t{argsIfSet.Description}");
+            sb.AppendLine($"      (requires: {string.Join(", ", argsIfSet.Fields)})\t{argsIfSet.Description}");
     }
 
     private static string BuildNames(
@@ -206,7 +206,7 @@ public static class HelpGenerator
         if (argsPathspec is not null)
             return "[--] <pathspec>...";
         if (argsPositional is not null)
-            return $"<{prop.Name.ToLower()}> (positional {argsPositional.GetPosition})";
+            return $"<{prop.Name.ToLower()}> (positional {argsPositional.Position})";
         return $"<{prop.Name.ToLower()}>";
     }
 }

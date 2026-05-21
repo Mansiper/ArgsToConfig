@@ -9,13 +9,11 @@ namespace ArgsToConfig.Attributes;
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsIfSetAttribute : Attribute
 {
-    private readonly string[] fields;
+    internal readonly string[] Fields;
 
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
     public ArgsIfSetAttribute(params string[] fields) =>
-        this.fields = fields;
-
-    internal string[] GetFields => fields;
+        Fields = fields;
 }

@@ -9,12 +9,10 @@ namespace ArgsToConfig.Attributes;
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public class ArgsConvertorAttribute : Attribute
 {
-    private readonly Type convertorType;
+    internal readonly Type ConvertorType;
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
 
     public ArgsConvertorAttribute(Type convertorType) =>
-        this.convertorType = convertorType;
-
-    internal Type GetConvertorType => convertorType;
+        ConvertorType = convertorType;
 }

@@ -12,7 +12,7 @@ namespace ArgsToConfig.Attributes;
 public class ArgsHasParameterAttribute : Attribute
 {
     private readonly string name;
-    private readonly int position;
+    internal readonly int Position;
 
     /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
     public string? Description { get; set; }
@@ -20,8 +20,7 @@ public class ArgsHasParameterAttribute : Attribute
     public string? EnvVar { get; set; }
 
     public ArgsHasParameterAttribute(string name, int position = -1) =>
-        (this.name, this.position) = (name, position);
+        (this.name, Position) = (name, position);
 
     internal string[] GetNames => name.Split('|');
-    internal int GetPosition => position;
 }
