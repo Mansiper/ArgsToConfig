@@ -115,7 +115,7 @@ internal static class InnerToObject
                 ValueForBoolTrueNames = valueForBool?.GetTrueNames,
                 ValueForBoolFalseNames = valueForBool?.GetFalseNames,
                 IsEnum = isEnum,
-                AfterFields = after?.GetFields,
+                AfterFields = after?.Fields,
                 IfSetFields = ifSet?.Fields,
                 IsPathspec = isPathspec,
                 EnumMemberRules = enumMemberRules,

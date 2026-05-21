@@ -7,12 +7,10 @@ namespace ArgsToConfig.Attributes;
 /// Indicates that the field or property it is applied to should be converted using the specified convertor type when parsing command-line arguments.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsConvertorAttribute : Attribute
+public class ArgsConvertorAttribute : BaseArgsAttribute
 {
     internal readonly Type ConvertorType;
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
 
-    public ArgsConvertorAttribute(Type convertorType) =>
+    public ArgsConvertorAttribute(Type convertorType) => 
         ConvertorType = convertorType;
 }

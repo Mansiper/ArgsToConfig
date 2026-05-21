@@ -11,7 +11,7 @@ namespace ArgsToConfig.Attributes;
 /// The default value can be overridden via <see cref="DefaultValue"/>.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsValueForAttribute : Attribute
+public class ArgsValueForAttribute : BaseArgsAttribute
 {
     private readonly string name;
 
@@ -19,8 +19,6 @@ public class ArgsValueForAttribute : Attribute
     public bool Optional { get; set; }
     /// <summary>Gets or sets the default value used when the argument is absent and <see cref="Optional"/> is <see langword="true"/>.</summary>
     public string? DefaultValue { get; set; }
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
     /// <summary>Gets or sets the name of an environment variable that supplies the value when the argument is absent.</summary>
     public string? EnvVar { get; set; }
 

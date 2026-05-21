@@ -9,13 +9,11 @@ namespace ArgsToConfig.Attributes;
 /// </summary>
 /// <remarks>Works with boolean type only.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsHasParameterAttribute : Attribute
+public class ArgsHasParameterAttribute : BaseArgsAttribute
 {
     private readonly string name;
     internal readonly int Position;
 
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
     /// <summary>Gets or sets the name of an environment variable that supplies the value when the argument is absent.</summary>
     public string? EnvVar { get; set; }
 

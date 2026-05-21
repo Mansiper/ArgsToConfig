@@ -7,8 +7,4 @@ namespace ArgsToConfig.Attributes;
 /// Indicates that the field or property it is applied to should only accept existing file paths when parsing command-line arguments.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsExistingOnlyFileAttribute : Attribute
-{
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
-}
+public class ArgsExistingOnlyFileAttribute : BaseArgsAttribute;

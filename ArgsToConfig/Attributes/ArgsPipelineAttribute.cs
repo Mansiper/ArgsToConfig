@@ -8,8 +8,4 @@ namespace ArgsToConfig.Attributes;
 /// </summary>
 /// <remarks>Works with interface collection types only.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsPipelineAttribute : Attribute
-{
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
-}
+public class ArgsPipelineAttribute : BaseArgsAttribute;

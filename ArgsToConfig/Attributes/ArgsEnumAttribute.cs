@@ -9,7 +9,7 @@ namespace ArgsToConfig.Attributes;
 /// </summary>
 /// <remarks>Works only with enums.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsEnumAttribute : Attribute
+public class ArgsEnumAttribute : BaseArgsAttribute
 {
     private readonly string? name;
 
@@ -17,8 +17,6 @@ public class ArgsEnumAttribute : Attribute
     public bool Optional { get; set; }
     /// <summary>Gets or sets the default enum member name (as defined by <see cref="ArgsEnumValueAttribute"/>) used when the argument is absent and <see cref="Optional"/> is <see langword="true"/>.</summary>
     public string? DefaultValue { get; set; }
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
     /// <summary>Gets or sets the name of an environment variable that supplies the value when the argument is absent.</summary>
     public string? EnvVar { get; set; }
     /// <summary>

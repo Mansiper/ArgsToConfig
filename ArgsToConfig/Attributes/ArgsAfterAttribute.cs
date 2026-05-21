@@ -9,14 +9,10 @@ namespace ArgsToConfig.Attributes;
 /// The specified fields cannot be changed after the value is assigned to the field or property with this attribute.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsAfterAttribute : Attribute
+public class ArgsAfterAttribute : BaseArgsAttribute
 {
-    private readonly string[] fields;
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
+    internal readonly string[] Fields;
 
     public ArgsAfterAttribute(params string[] fields) =>
-        this.fields = fields;
-
-    internal string[] GetFields => fields;
+        Fields = fields;
 }

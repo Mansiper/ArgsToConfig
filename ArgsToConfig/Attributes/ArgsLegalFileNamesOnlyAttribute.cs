@@ -8,8 +8,4 @@ namespace ArgsToConfig.Attributes;
 /// This attribute can be applied to fields or properties to enforce that the values provided are valid file names, preventing issues related to invalid characters or formats in file paths.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsLegalFileNamesOnlyAttribute : Attribute
-{
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
-}
+public class ArgsLegalFileNamesOnlyAttribute : BaseArgsAttribute;

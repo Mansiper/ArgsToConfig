@@ -9,12 +9,9 @@ namespace ArgsToConfig.Attributes;
 /// Use this attribute to define a custom order among positional fields.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsPositionalAttribute : Attribute
+public class ArgsPositionalAttribute : BaseArgsAttribute
 {
     internal readonly int Position;
-
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
 
     public ArgsPositionalAttribute(int position) =>
         Position = position;

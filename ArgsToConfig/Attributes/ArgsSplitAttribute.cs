@@ -27,12 +27,9 @@ namespace ArgsToConfig.Attributes;
 /// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsSplitAttribute : Attribute
+public class ArgsSplitAttribute : BaseArgsAttribute
 {
     internal readonly string[] Dividers;
-
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
 
     /// <summary>
     /// When <see langword="false"/> (default), all parts are separated by the same dividers applied

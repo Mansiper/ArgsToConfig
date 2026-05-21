@@ -12,7 +12,8 @@ namespace ArgsToConfig.Attributes;
 public class ArgsHelpGroupAttribute : Attribute
 {
     /// <summary>Gets the display name of the group shown as a section header in help output.</summary>
-    public string Name { get; }
+    internal readonly string Name;
 
-    public ArgsHelpGroupAttribute(string name) => Name = name;
+    public ArgsHelpGroupAttribute(string name) => 
+        Name = name;
 }

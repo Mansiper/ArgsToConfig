@@ -8,13 +8,10 @@ namespace ArgsToConfig.Attributes;
 /// Applied to a class that implements the interface of a command collection.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class)]
-public class ArgsPipelineCommandAttribute : Attribute
+public class ArgsPipelineCommandAttribute : BaseArgsAttribute
 {
     internal readonly string Name;
-
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
-
+    
     public ArgsPipelineCommandAttribute(string name) =>
         Name = name;
 }

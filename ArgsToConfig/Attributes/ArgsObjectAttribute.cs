@@ -8,12 +8,9 @@ namespace ArgsToConfig.Attributes;
 /// </summary>
 /// <remarks>Works with object types only.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsObjectAttribute : Attribute
+public class ArgsObjectAttribute : BaseArgsAttribute
 {
     private readonly string name;
-
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
 
     public ArgsObjectAttribute(string name) =>
         this.name = name;

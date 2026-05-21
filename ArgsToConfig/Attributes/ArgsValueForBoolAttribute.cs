@@ -9,14 +9,11 @@ namespace ArgsToConfig.Attributes;
 /// </summary>
 /// <remarks>Works with boolean type only.</remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsValueForBoolAttribute : Attribute
+public class ArgsValueForBoolAttribute : BaseArgsAttribute
 {
     private readonly string trueName;
     private readonly string falseName;
     
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
-
     public ArgsValueForBoolAttribute(string trueName, string falseName) =>
         (this.trueName, this.falseName) = (trueName, falseName);
 

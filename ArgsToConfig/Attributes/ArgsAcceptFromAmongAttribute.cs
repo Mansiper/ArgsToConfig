@@ -7,11 +7,9 @@ namespace ArgsToConfig.Attributes;
 /// Indicates that the field or property it is applied to should only accept values from a specified set of string values when parsing command-line arguments.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public class ArgsAcceptFromAmongAttribute : Attribute
+public class ArgsAcceptFromAmongAttribute : BaseArgsAttribute
 {
     internal readonly string[] Values;
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
 
     public ArgsAcceptFromAmongAttribute(params string[] values) =>
         Values = values;

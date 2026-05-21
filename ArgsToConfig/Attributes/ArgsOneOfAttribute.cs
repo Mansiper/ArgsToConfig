@@ -10,12 +10,9 @@ namespace ArgsToConfig.Attributes;
 /// </summary>
 /// <remarks>All listed fields must be nullable.</remarks>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-public class ArgsOneOfAttribute : Attribute
+public class ArgsOneOfAttribute : BaseArgsAttribute
 {
     internal readonly string[] Fields;
-    
-    /// <summary>Gets or sets an optional human-readable description shown in help output.</summary>
-    public string? Description { get; set; }
 
     public ArgsOneOfAttribute(params string[] fields) =>
         Fields = fields;
